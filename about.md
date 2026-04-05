@@ -51,6 +51,8 @@ In Banares I was trying to work on a social venture called Banares Dialogues alo
 # Hi, I'm Harsh. 👋
 ### Some call me Bunny, some call me Avi — but most people just call me crazy. I'll take it.
 
+<img src="/images/profile.jpg" alt="Harsh Agarwal" style="width:220px; border-radius:8px; display:block; margin: 20px 0;" />
+
 ---
 
 > *"Talent hits a target no one else can hit; a genius hits a target no one else can see."*
