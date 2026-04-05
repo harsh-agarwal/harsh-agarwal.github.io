@@ -263,11 +263,17 @@ def p_sample_loop(model, n_samples=8):
 
 Here's the full algorithm at a glance:
 
-| Phase | Formula | What happens |
-|-------|---------|-------------|
-| **Forward** | $x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1-\bar{\alpha}_t} \cdot \varepsilon$ | Destroy the image in one shot |
-| **Train** | $\mathcal{L} = \mathbb{E}\bigl[\|\varepsilon - \varepsilon_\theta(x_t, t)\|^2\bigr]$ | Teach the network to predict noise |
-| **Sample** | $x_{t-1} = \frac{1}{\sqrt{\alpha_t}}\!\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \varepsilon_\theta\right) + \sqrt{\beta_t} z$ | Denoise step by step from pure noise |
+**1. Forward — destroy the image in one shot**
+
+$$x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1-\bar{\alpha}_t} \cdot \varepsilon$$
+
+**2. Train — teach the network to predict noise**
+
+$$\mathcal{L} = \mathbb{E}\!\left[\left\|\varepsilon - \varepsilon_\theta(x_t, t)\right\|^2\right]$$
+
+**3. Sample — denoise step by step from pure noise**
+
+$$x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \cdot \varepsilon_\theta(x_t, t)\right) + \sqrt{\beta_t} \cdot z$$
 
 With 4,096 tiny training images, a 3-layer MLP, and 20 diffusion steps, the model learns to generate recognizable circles and squares in a few minutes on a laptop.
 
