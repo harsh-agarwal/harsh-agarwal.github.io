@@ -376,7 +376,15 @@ This minimal implementation keeps every moving part visible. To scale up toward 
 - **Add classifier-free guidance** to condition generation on class labels or text prompts.
 - **Explore score-based models** — the continuous-time generalization of this framework.
 
-The full runnable script (one file, zero external datasets) is available in [`microdiffusion.py`](./microdiffusion.py).
+The full runnable script (one file, zero external datasets) is available in [`microdiffusion.py`](https://github.com/harsh-agarwal/micro-diffusion/blob/main/microdiffusion.py).
+
+---
+
+## Authors
+
+**Harsh Agarwal** — MS in Robotics, Carnegie Mellon University. [GitHub](https://github.com/harsh-agarwal)
+
+**Claude (Anthropic)** — AI assistant. This post was written in collaboration with Claude, which helped structure the derivations, write the proofs, and format the mathematical notation.
 
 ---
 
