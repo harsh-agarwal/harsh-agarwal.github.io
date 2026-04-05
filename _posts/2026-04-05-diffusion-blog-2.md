@@ -113,6 +113,9 @@ $$\boxed{x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1 - \bar{\alpha}_t} \cdot
 
 The signal coefficient $\sqrt{\bar{\alpha}_t}$ shrinks toward zero while the noise coefficient $\sqrt{1 - \bar{\alpha}_t}$ grows toward one. At $t = T$ the image is pure noise.
 
+<details markdown="1">
+<summary style="cursor:pointer; color:#0645ad;">Show proof</summary>
+
 ### Proof by induction
 
 This result isn't magic — it falls out of one key property of Gaussian random variables: if $A \sim \mathcal{N}(0, \sigma_1^2)$ and $B \sim \mathcal{N}(0, \sigma_2^2)$ are independent, then $A + B \sim \mathcal{N}(0,\, \sigma_1^2 + \sigma_2^2)$. Let's prove the closed form step by step.
@@ -164,6 +167,10 @@ $$\sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})} \cdot \bar{\varepsilon}_{t-1} + \sqrt{
 Putting it together:
 
 $$\boxed{x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1 - \bar{\alpha}_t} \cdot \varepsilon} \qquad \blacksquare$$
+
+<a href="#" style="color:#0645ad;" onclick="this.closest('details').removeAttribute('open'); return false;">Hide proof</a>
+
+</details>
 
 This is why `torch.cumprod` is all we need to precompute the schedule — the entire multi-step chain reduces to one multiplication and one addition.
 
