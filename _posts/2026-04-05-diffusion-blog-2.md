@@ -111,6 +111,8 @@ $$\boxed{x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1 - \bar{\alpha}_t} \cdot
 
 The signal coefficient $\sqrt{\bar{\alpha}_t}$ shrinks toward zero while the noise coefficient $\sqrt{1 - \bar{\alpha}_t}$ grows toward one. At $t = T$ the image is pure noise.
 
+![Forward process: a clean image progressively corrupted into Gaussian noise over T steps](/images/diffusion_model_post/forward_process.png)
+
 <details markdown="1">
 <summary style="cursor:pointer; color:#0645ad;">Show proof</summary>
 
@@ -211,6 +213,10 @@ for epoch in range(EPOCHS):
 ```
 
 Sampling $t$ uniformly ensures every noise level gets equal training attention — both the near-clean images (small $t$) and the nearly destroyed ones (large $t$).
+
+![Training loss curve over epochs](/images/diffusion_model_post/training_loss.png)
+
+![Generated samples after training](/images/diffusion_model_post/generated_samples.png)
 
 ---
 
