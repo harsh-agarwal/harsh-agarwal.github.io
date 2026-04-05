@@ -48,9 +48,9 @@ In Banares I was trying to work on a social venture called Banares Dialogues alo
 
 [Harsh Agarwal](mailto:harshaga@andrew.cmu.edu)  -->
 
-<div style="float:right; margin: 6px 0 24px 36px;">
-  <img src="/images/profile.jpg" alt="Harsh Agarwal" style="width:220px; border-radius:8px; display:block;" />
-</div>
+<div style="display:flex; align-items:flex-start; gap:36px; margin-bottom:32px;">
+  <img src="/images/profile.jpg" alt="Harsh Agarwal" style="width:210px; border-radius:8px; flex-shrink:0;" />
+  <div markdown="1">
 
 # Hi, I'm Harsh. 👋
 ### Some call me Bunny, some call me Avi — but most people just call me crazy. I'll take it.
@@ -63,7 +63,8 @@ In Banares I was trying to work on a social venture called Banares Dialogues alo
 > *"Here's to the crazy ones. The misfits. The rebels. The troublemakers... Because the people who are crazy enough to think they can change the world, are the ones who do."*
 > — Steve Jobs
 
-<div style="clear:both;"></div>
+  </div>
+</div>
 
 ---
 
