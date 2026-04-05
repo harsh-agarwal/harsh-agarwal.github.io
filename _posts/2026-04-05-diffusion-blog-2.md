@@ -3,8 +3,6 @@ layout: post
 title: "Diffusion Models from Scratch: The Math and Code Behind AI Image Generation"
 ---
 
-# Diffusion Models from Scratch: The Math and Code Behind AI Image Generation
-
 *A step-by-step walkthrough of Denoising Diffusion Probabilistic Models (DDPMs) — the algorithm powering Stable Diffusion, DALL·E, and Imagen — implemented in ~300 lines of PyTorch.*
 
 ---
