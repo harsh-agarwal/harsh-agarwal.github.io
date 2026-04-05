@@ -275,15 +275,23 @@ $$q(x_{t-1} \mid x_t, x_0) = \mathcal{N}\!\left(x_{t-1};\; \tilde{\mu}_t(x_t, x_
 
 **Step 4: Eliminate $x_0$ using the noise prediction.**
 
-We cannot condition on the unknown $x_0$ at sampling time. From the forward process formula we can invert it:
+We cannot condition on the unknown $x_0$ at sampling time. Inverting the Chapter 4 forward formula gives:
 
 $$x_0 = \frac{x_t - \sqrt{1-\bar{\alpha}_t}\;\varepsilon_\theta(x_t, t)}{\sqrt{\bar{\alpha}_t}}$$
 
-Substituting into $\tilde{\mu}_t$ and using $\sqrt{\bar{\alpha}_{t-1}}/\sqrt{\bar{\alpha}_t} = 1/\sqrt{\alpha_t}$:
+Substitute this into the posterior mean from Step 3:
 
-$$\tilde{\mu}_t = \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}\, x_t + \frac{\beta_t}{(1-\bar{\alpha}_t)\sqrt{\alpha_t}}\, x_t - \frac{\beta_t}{\sqrt{\alpha_t}\sqrt{1-\bar{\alpha}_t}}\;\varepsilon_\theta$$
+$$\tilde{\mu}_t = \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}\, x_t + \frac{\sqrt{\bar{\alpha}_{t-1}}\,\beta_t}{1-\bar{\alpha}_t} \cdot \frac{x_t - \sqrt{1-\bar{\alpha}_t}\;\varepsilon_\theta}{\sqrt{\bar{\alpha}_t}}$$
 
-The two $x_t$ terms share the factor $\frac{1}{(1-\bar{\alpha}_t)\sqrt{\alpha_t}}$; their combined bracket is $\alpha_t(1-\bar{\alpha}_{t-1}) + \beta_t = 1-\bar{\alpha}_t$ (from Step 3), so they collapse to $\frac{1}{\sqrt{\alpha_t}}$:
+Use $\sqrt{\bar{\alpha}_{t-1}}/\sqrt{\bar{\alpha}_t} = 1/\sqrt{\alpha_t}$ to simplify the second term:
+
+$$\tilde{\mu}_t = \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}\, x_t + \frac{\beta_t}{(1-\bar{\alpha}_t)\sqrt{\alpha_t}}\!\left(x_t - \sqrt{1-\bar{\alpha}_t}\;\varepsilon_\theta\right)$$
+
+Factor out $\dfrac{1}{(1-\bar{\alpha}_t)\sqrt{\alpha_t}}$ from both $x_t$ terms:
+
+$$\tilde{\mu}_t = \frac{x_t}{(1-\bar{\alpha}_t)\sqrt{\alpha_t}}\!\left[\alpha_t(1-\bar{\alpha}_{t-1}) + \beta_t\right] - \frac{\beta_t}{\sqrt{\alpha_t}\sqrt{1-\bar{\alpha}_t}}\;\varepsilon_\theta$$
+
+The bracket $\alpha_t(1-\bar{\alpha}_{t-1}) + \beta_t = 1-\bar{\alpha}_t$ (shown in Step 3), so the $x_t$ coefficient collapses:
 
 $$\tilde{\mu}_t = \frac{1}{\sqrt{\alpha_t}}\!\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\;\varepsilon_\theta(x_t,t)\right)$$
 
