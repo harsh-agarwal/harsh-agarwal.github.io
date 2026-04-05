@@ -1,0 +1,291 @@
+---
+layout: post
+title: "Diffusion Models from Scratch: The Math and Code Behind AI Image Generation"
+---
+
+# Diffusion Models from Scratch: The Math and Code Behind AI Image Generation
+
+*A step-by-step walkthrough of Denoising Diffusion Probabilistic Models (DDPMs) — the algorithm powering Stable Diffusion, DALL·E, and Imagen — implemented in ~300 lines of PyTorch.*
+
+---
+
+## The Big Idea
+
+A diffusion model is a generative model that learns to **reverse a noise process**. The intuition is surprisingly simple:
+
+1. **Forward process (easy, no learning):** Take a real image. Add a tiny bit of Gaussian noise. Repeat *T* times. After *T* steps the image is indistinguishable from pure static.
+
+2. **Reverse process (hard, learned):** Train a neural network to undo one step of noise at a time. At generation time, start from pure static and denoise step by step until a crisp image emerges.
+
+The mathematical trick that makes this practical is that we can jump to *any* noise level in one shot — no need to simulate every intermediate step during training.
+
+---
+
+## Chapter 1 — The Noise Schedule
+
+We destroy an image gradually over *T* timesteps. At each step *t* we inject noise controlled by a variance parameter β\_t. From β we derive two useful quantities:
+
+| Symbol | Definition | Meaning |
+|--------|-----------|---------|
+| β\_t | chosen per schedule | variance of noise added at step *t* |
+| α\_t | 1 − β\_t | fraction of signal **kept** at step *t* |
+| ᾱ\_t | ∏ α\_s from s=1…t | **cumulative** signal fraction from step 1 to *t* |
+
+ᾱ\_t is the key number. When ᾱ\_t ≈ 0 the original image is gone entirely.
+
+```python
+T = 20  # timesteps (paper uses 1000; we use 20 for speed)
+
+betas     = torch.linspace(0.02, 0.50, T)       # linear schedule
+alphas    = 1.0 - betas                          # signal kept per step
+alpha_bar = torch.cumprod(alphas, dim=0)         # cumulative signal
+
+# Precompute the coefficients we'll reuse everywhere
+sqrt_alpha_bar           = torch.sqrt(alpha_bar)
+sqrt_one_minus_alpha_bar = torch.sqrt(1.0 - alpha_bar)
+```
+
+With this aggressive linear schedule (β from 0.02 to 0.50), ᾱ\_20 ≈ 0.0016 — only 0.16% of the original signal survives at the final step.
+
+> **Production note:** The original DDPM paper uses β ∈ \[1e-4, 0.02\] with T=1000. Improved DDPM introduced a cosine schedule. Both reach ᾱ\_T ≈ 0, just via different paths.
+
+---
+
+## Chapter 2 — Synthetic Data
+
+To keep things dependency-free, we generate our own training set: random filled circles and squares on a 16×16 grid.
+
+```python
+IMG_SIZE = 16
+
+def make_circle(size=IMG_SIZE):
+    img = np.zeros((size, size), dtype=np.float32)
+    cx = np.random.uniform(size * 0.3, size * 0.7)
+    cy = np.random.uniform(size * 0.3, size * 0.7)
+    r  = np.random.uniform(size * 0.2, size * 0.35)
+    gy, gx = np.mgrid[0:size, 0:size]
+    mask = (gx - cx)**2 + (gy - cy)**2 <= r**2
+    img[mask] = 1.0
+    return img * 2.0 - 1.0  # normalize to [-1, +1]
+```
+
+**Why normalize to \[−1, +1\]?** The forward process ends at pure Gaussian noise N(0, I), which is centered at zero. If our clean images lived in \[0, 1\] the data and noise distributions would sit on different scales, making the reverse process harder to learn. Centering on zero aligns them.
+
+---
+
+## Chapter 3 — The Model: ε\_θ(x\_t, t)
+
+The network's job is straightforward: given a noisy image x\_t and the timestep *t*, predict the noise ε that was mixed in. We use a small MLP with one-hot timestep encoding.
+
+```python
+class NoisePredictorMLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(IMG_DIM + T, 256), nn.GELU(),  # input projection
+            nn.Linear(256, 256),         nn.GELU(),  # hidden layer
+            nn.Linear(256, IMG_DIM),                  # output: predicted noise
+        )
+
+    def forward(self, x_t, t):
+        t_emb = F.one_hot(t, num_classes=T).float()  # (B, T)
+        inp   = torch.cat([x_t, t_emb], dim=1)       # (B, IMG_DIM + T)
+        return self.net(inp)
+```
+
+A few design choices worth noting:
+
+- **One-hot timestep encoding** is transparent and efficient when T is small. Production models with T=1000 use sinusoidal embeddings instead to avoid a 1000-dim sparse vector.
+- **Concatenation over addition** keeps the image and time signals independent — the first 256 dims are always "image," the last T dims are always "time."
+- **GELU over ReLU** avoids ReLU's hard zero-cutoff, which creates gradient discontinuities near zero — a region noise predictions visit often.
+
+---
+
+## Chapter 4 — The Forward Process: q(x\_t | x\_0)
+
+Each step of the Markov chain adds noise:
+
+> x\_t = √α\_t · x\_{t−1} + √(1 − α\_t) · ε
+
+But here's the key insight — we can **skip straight to any timestep** with a closed-form expression:
+
+> **x\_t = √ᾱ\_t · x\_0 + √(1 − ᾱ\_t) · ε**,&emsp; ε ∼ N(0, I)
+
+The signal coefficient √ᾱ\_t shrinks toward zero while the noise coefficient √(1 − ᾱ\_t) grows toward one. At t = T the image is pure noise.
+
+### Proof by induction
+
+This result isn't magic — it falls out of one key property of Gaussian random variables: if A ∼ N(0, σ₁²) and B ∼ N(0, σ₂²) are independent, then A + B ∼ N(0, σ₁² + σ₂²). Let's prove the closed form step by step.
+
+**Setup.** Each forward step is defined as:
+
+> x\_t = √α\_t · x\_{t−1} + √(1 − α\_t) · ε\_t,&emsp; ε\_t ∼ N(0, I),&emsp; α\_t = 1 − β\_t
+
+We want to show that x\_t can be written purely in terms of x\_0 and a single noise draw.
+
+**Base case (t = 1):**
+
+> x\_1 = √α\_1 · x\_0 + √(1 − α\_1) · ε\_1
+
+Since ᾱ\_1 = α\_1, this is already in the target form: x\_1 = √ᾱ\_1 · x\_0 + √(1 − ᾱ\_1) · ε\_1. ✓
+
+**Inductive step.** Assume the claim holds at step t−1:
+
+> x\_{t−1} = √ᾱ\_{t−1} · x\_0 + √(1 − ᾱ\_{t−1}) · ε̄\_{t−1},&emsp; ε̄\_{t−1} ∼ N(0, I)
+
+Now apply one more forward step:
+
+> x\_t = √α\_t · x\_{t−1} + √(1 − α\_t) · ε\_t
+
+Substitute the inductive hypothesis for x\_{t−1}:
+
+> x\_t = √α\_t · \[√ᾱ\_{t−1} · x\_0 + √(1 − ᾱ\_{t−1}) · ε̄\_{t−1}\] + √(1 − α\_t) · ε\_t
+
+Distribute √α\_t:
+
+> x\_t = √(α\_t · ᾱ\_{t−1}) · x\_0 + √(α\_t(1 − ᾱ\_{t−1})) · ε̄\_{t−1} + √(1 − α\_t) · ε\_t
+
+The first term simplifies immediately since α\_t · ᾱ\_{t−1} = ᾱ\_t by definition of the cumulative product:
+
+> x\_t = **√ᾱ\_t · x\_0** + √(α\_t(1 − ᾱ\_{t−1})) · ε̄\_{t−1} + √(1 − α\_t) · ε\_t
+
+Now focus on the two noise terms. They are independent Gaussians (ε̄\_{t−1} and ε\_t are drawn independently), so their sum is Gaussian with variance equal to the sum of variances:
+
+> variance = α\_t(1 − ᾱ\_{t−1}) + (1 − α\_t)
+
+Expand:
+
+> = α\_t − α\_t · ᾱ\_{t−1} + 1 − α\_t
+
+Cancel the α\_t terms:
+
+> = 1 − α\_t · ᾱ\_{t−1}
+
+> = **1 − ᾱ\_t**
+
+So the two noise terms collapse into a single Gaussian with the exact variance we need:
+
+> √(α\_t(1 − ᾱ\_{t−1})) · ε̄\_{t−1} + √(1 − α\_t) · ε\_t &ensp;=&ensp; √(1 − ᾱ\_t) · ε,&emsp; ε ∼ N(0, I)
+
+Putting it together:
+
+> **x\_t = √ᾱ\_t · x\_0 + √(1 − ᾱ\_t) · ε** &emsp; ∎
+
+This is why `torch.cumprod` is all we need to precompute the schedule — the entire multi-step chain reduces to one multiplication and one addition.
+
+```python
+def q_sample(x0, t, noise):
+    """Corrupt x_0 directly to noise level t (no sequential simulation)."""
+    sa  = sqrt_alpha_bar[t].unsqueeze(1)            # (B, 1)
+    soa = sqrt_one_minus_alpha_bar[t].unsqueeze(1)  # (B, 1)
+    return sa * x0 + soa * noise                    # (B, IMG_DIM)
+```
+
+This is what makes DDPM training efficient — each batch element can jump to a random noise level in O(1).
+
+---
+
+## Chapter 5 — Training
+
+The training objective is beautifully simple. It comes from a simplification of the variational lower bound (ELBO), as shown in Ho et al. (Eq. 14):
+
+> **L = E\[ ‖ε − ε\_θ(x\_t, t)‖² \]**
+
+In plain English: sample a random timestep, corrupt the image, ask the network to predict the noise, and minimize the mean squared error.
+
+```python
+for epoch in range(EPOCHS):
+    for x0 in dataloader:
+        x0 = x0.to(device)
+        B  = x0.shape[0]
+
+        t     = torch.randint(0, T, (B,), device=device)  # random timestep
+        noise = torch.randn_like(x0)                       # ε ~ N(0, I)
+        x_t   = q_sample(x0, t, noise)                     # corrupt
+
+        eps_pred = model(x_t, t)                            # predict noise
+        loss     = F.mse_loss(eps_pred, noise)              # compare
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+```
+
+Sampling *t* uniformly ensures every noise level gets equal training attention — both the near-clean images (small *t*) and the nearly destroyed ones (large *t*).
+
+---
+
+## Chapter 6 — Sampling: The Reverse Process
+
+This is where the magic happens. Starting from pure noise x\_T ∼ N(0, I), we denoise one step at a time.
+
+The reverse step formula is derived by applying Bayes' theorem to the forward process, substituting our noise prediction, and simplifying:
+
+> **x\_{t−1} = (1/√α\_t) · \[x\_t − (β\_t / √(1 − ᾱ\_t)) · ε\_θ(x\_t, t)\] + √β\_t · z**
+
+where z ∼ N(0, I) for t > 0 and z = 0 at the final step.
+
+```python
+@torch.no_grad()
+def p_sample(model, x_t, t_scalar):
+    """One reverse step: x_t → x_{t-1}."""
+    B       = x_t.shape[0]
+    t_batch = torch.full((B,), t_scalar, device=device, dtype=torch.long)
+
+    eps_pred = model(x_t, t_batch)
+
+    coeff1 = 1.0 / sqrt_alphas[t_scalar]
+    coeff2 = betas[t_scalar] / sqrt_one_minus_alpha_bar[t_scalar]
+    mean   = coeff1 * (x_t - coeff2 * eps_pred)
+
+    if t_scalar == 0:
+        return mean  # deterministic final step
+    else:
+        z = torch.randn_like(x_t)
+        return mean + sqrt_betas[t_scalar] * z
+```
+
+**Why add noise at every step except the last?** The stochasticity is what gives the model its generative diversity. Two runs from different starting noise produce different images. At t = 0 we want the clean result, so we drop the noise term.
+
+To generate a full image, we just loop from T−1 down to 0:
+
+```python
+@torch.no_grad()
+def p_sample_loop(model, n_samples=8):
+    x = torch.randn(n_samples, IMG_DIM, device=device)  # start from noise
+    for t in reversed(range(T)):
+        x = p_sample(model, x, t)
+    return x
+```
+
+---
+
+## Putting It All Together
+
+Here's the full algorithm at a glance:
+
+| Phase | Formula | What happens |
+|-------|---------|-------------|
+| **Forward** | x\_t = √ᾱ\_t · x\_0 + √(1−ᾱ\_t) · ε | Destroy the image in one shot |
+| **Train** | L = E\[‖ε − ε\_θ(x\_t, t)‖²\] | Teach the network to predict noise |
+| **Sample** | x\_{t−1} = (1/√α\_t)(x\_t − β\_t/√(1−ᾱ\_t) · ε\_θ) + √β\_t · z | Denoise step by step from pure noise |
+
+With 4,096 tiny training images, a 3-layer MLP, and 20 diffusion steps, the model learns to generate recognizable circles and squares in a few minutes on a laptop.
+
+---
+
+## Where to Go from Here
+
+This minimal implementation keeps every moving part visible. To scale up toward production-quality generation:
+
+- **Replace the MLP with a U-Net** to exploit spatial structure via skip connections.
+- **Use sinusoidal time embeddings** when T grows to 1000+.
+- **Try DDIM** for deterministic, fewer-step sampling at inference time.
+- **Add classifier-free guidance** to condition generation on class labels or text prompts.
+- **Explore score-based models** — the continuous-time generalization of this framework.
+
+The full runnable script (one file, zero external datasets) is available in [`microdiffusion.py`](./microdiffusion.py).
+
+---
+
+*Reference: Ho, Jain & Abbeel, "Denoising Diffusion Probabilistic Models," NeurIPS 2020. [arXiv:2006.11239](https://arxiv.org/abs/2006.11239)*
