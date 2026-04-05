@@ -13,7 +13,7 @@ title: "Diffusion Models from Scratch: The Math and Code Behind AI Image Generat
 
 A diffusion model is a generative model that learns to **reverse a noise process**. The intuition is surprisingly simple:
 
-1. **Forward process (easy, no learning):** Take a real image. Add a tiny bit of Gaussian noise. Repeat *T* times. After *T* steps the image is indistinguishable from pure static.
+1. **Forward process (easy, no learning):** Take a real image. Add a tiny bit of Gaussian noise. Repeat $T$ times. After $T$ steps the image is indistinguishable from pure static.
 
 2. **Reverse process (hard, learned):** Train a neural network to undo one step of noise at a time. At generation time, start from pure static and denoise step by step until a crisp image emerges.
 
@@ -23,15 +23,15 @@ The mathematical trick that makes this practical is that we can jump to *any* no
 
 ## Chapter 1 — The Noise Schedule
 
-We destroy an image gradually over *T* timesteps. At each step *t* we inject noise controlled by a variance parameter β\_t. From β we derive two useful quantities:
+We destroy an image gradually over $T$ timesteps. At each step $t$ we inject noise controlled by a variance parameter $\beta_t$. From $\beta$ we derive two useful quantities:
 
 | Symbol | Definition | Meaning |
 |--------|-----------|---------|
-| β\_t | chosen per schedule | variance of noise added at step *t* |
-| α\_t | 1 − β\_t | fraction of signal **kept** at step *t* |
-| ᾱ\_t | ∏ α\_s from s=1…t | **cumulative** signal fraction from step 1 to *t* |
+| $\beta_t$ | chosen per schedule | variance of noise added at step $t$ |
+| $\alpha_t$ | $1 - \beta_t$ | fraction of signal **kept** at step $t$ |
+| $\bar{\alpha}_t$ | $\prod_{s=1}^{t} \alpha_s$ | **cumulative** signal fraction from step 1 to $t$ |
 
-ᾱ\_t is the key number. When ᾱ\_t ≈ 0 the original image is gone entirely.
+$\bar{\alpha}_t$ is the key number. When $\bar{\alpha}_t \approx 0$ the original image is gone entirely.
 
 ```python
 T = 20  # timesteps (paper uses 1000; we use 20 for speed)
@@ -45,9 +45,9 @@ sqrt_alpha_bar           = torch.sqrt(alpha_bar)
 sqrt_one_minus_alpha_bar = torch.sqrt(1.0 - alpha_bar)
 ```
 
-With this aggressive linear schedule (β from 0.02 to 0.50), ᾱ\_20 ≈ 0.0016 — only 0.16% of the original signal survives at the final step.
+With this aggressive linear schedule ($\beta$ from 0.02 to 0.50), $\bar{\alpha}_{20} \approx 0.0016$ — only 0.16% of the original signal survives at the final step.
 
-> **Production note:** The original DDPM paper uses β ∈ \[1e-4, 0.02\] with T=1000. Improved DDPM introduced a cosine schedule. Both reach ᾱ\_T ≈ 0, just via different paths.
+> **Production note:** The original DDPM paper uses $\beta \in [10^{-4},\ 0.02]$ with $T=1000$. Improved DDPM introduced a cosine schedule. Both reach $\bar{\alpha}_T \approx 0$, just via different paths.
 
 ---
 
@@ -69,13 +69,13 @@ def make_circle(size=IMG_SIZE):
     return img * 2.0 - 1.0  # normalize to [-1, +1]
 ```
 
-**Why normalize to \[−1, +1\]?** The forward process ends at pure Gaussian noise N(0, I), which is centered at zero. If our clean images lived in \[0, 1\] the data and noise distributions would sit on different scales, making the reverse process harder to learn. Centering on zero aligns them.
+**Why normalize to $[-1,\, +1]$?** The forward process ends at pure Gaussian noise $\mathcal{N}(0, I)$, which is centered at zero. If our clean images lived in $[0, 1]$ the data and noise distributions would sit on different scales, making the reverse process harder to learn. Centering on zero aligns them.
 
 ---
 
-## Chapter 3 — The Model: ε\_θ(x\_t, t)
+## Chapter 3 — The Model: $\varepsilon_\theta(x_t, t)$
 
-The network's job is straightforward: given a noisy image x\_t and the timestep *t*, predict the noise ε that was mixed in. We use a small MLP with one-hot timestep encoding.
+The network's job is straightforward: given a noisy image $x_t$ and the timestep $t$, predict the noise $\varepsilon$ that was mixed in. We use a small MLP with one-hot timestep encoding.
 
 ```python
 class NoisePredictorMLP(nn.Module):
@@ -95,81 +95,75 @@ class NoisePredictorMLP(nn.Module):
 
 A few design choices worth noting:
 
-- **One-hot timestep encoding** is transparent and efficient when T is small. Production models with T=1000 use sinusoidal embeddings instead to avoid a 1000-dim sparse vector.
-- **Concatenation over addition** keeps the image and time signals independent — the first 256 dims are always "image," the last T dims are always "time."
+- **One-hot timestep encoding** is transparent and efficient when $T$ is small. Production models with $T=1000$ use sinusoidal embeddings instead to avoid a 1000-dim sparse vector.
+- **Concatenation over addition** keeps the image and time signals independent — the first 256 dims are always "image," the last $T$ dims are always "time."
 - **GELU over ReLU** avoids ReLU's hard zero-cutoff, which creates gradient discontinuities near zero — a region noise predictions visit often.
 
 ---
 
-## Chapter 4 — The Forward Process: q(x\_t | x\_0)
+## Chapter 4 — The Forward Process: $q(x_t \mid x_0)$
 
 Each step of the Markov chain adds noise:
 
-> x\_t = √α\_t · x\_{t−1} + √(1 − α\_t) · ε
+$$x_t = \sqrt{\alpha_t} \cdot x_{t-1} + \sqrt{1 - \alpha_t} \cdot \varepsilon$$
 
 But here's the key insight — we can **skip straight to any timestep** with a closed-form expression:
 
-> **x\_t = √ᾱ\_t · x\_0 + √(1 − ᾱ\_t) · ε**,&emsp; ε ∼ N(0, I)
+$$\boxed{x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1 - \bar{\alpha}_t} \cdot \varepsilon,} \qquad \varepsilon \sim \mathcal{N}(0, I)$$
 
-The signal coefficient √ᾱ\_t shrinks toward zero while the noise coefficient √(1 − ᾱ\_t) grows toward one. At t = T the image is pure noise.
+The signal coefficient $\sqrt{\bar{\alpha}_t}$ shrinks toward zero while the noise coefficient $\sqrt{1 - \bar{\alpha}_t}$ grows toward one. At $t = T$ the image is pure noise.
 
 ### Proof by induction
 
-This result isn't magic — it falls out of one key property of Gaussian random variables: if A ∼ N(0, σ₁²) and B ∼ N(0, σ₂²) are independent, then A + B ∼ N(0, σ₁² + σ₂²). Let's prove the closed form step by step.
+This result isn't magic — it falls out of one key property of Gaussian random variables: if $A \sim \mathcal{N}(0, \sigma_1^2)$ and $B \sim \mathcal{N}(0, \sigma_2^2)$ are independent, then $A + B \sim \mathcal{N}(0,\, \sigma_1^2 + \sigma_2^2)$. Let's prove the closed form step by step.
 
 **Setup.** Each forward step is defined as:
 
-> x\_t = √α\_t · x\_{t−1} + √(1 − α\_t) · ε\_t,&emsp; ε\_t ∼ N(0, I),&emsp; α\_t = 1 − β\_t
+$$x_t = \sqrt{\alpha_t} \cdot x_{t-1} + \sqrt{1 - \alpha_t} \cdot \varepsilon_t, \qquad \varepsilon_t \sim \mathcal{N}(0, I), \qquad \alpha_t = 1 - \beta_t$$
 
-We want to show that x\_t can be written purely in terms of x\_0 and a single noise draw.
+We want to show that $x_t$ can be written purely in terms of $x_0$ and a single noise draw.
 
-**Base case (t = 1):**
+**Base case ($t = 1$):**
 
-> x\_1 = √α\_1 · x\_0 + √(1 − α\_1) · ε\_1
+$$x_1 = \sqrt{\alpha_1} \cdot x_0 + \sqrt{1 - \alpha_1} \cdot \varepsilon_1$$
 
-Since ᾱ\_1 = α\_1, this is already in the target form: x\_1 = √ᾱ\_1 · x\_0 + √(1 − ᾱ\_1) · ε\_1. ✓
+Since $\bar{\alpha}_1 = \alpha_1$, this is already in the target form: $x_1 = \sqrt{\bar{\alpha}_1} \cdot x_0 + \sqrt{1 - \bar{\alpha}_1} \cdot \varepsilon_1$. ✓
 
-**Inductive step.** Assume the claim holds at step t−1:
+**Inductive step.** Assume the claim holds at step $t-1$:
 
-> x\_{t−1} = √ᾱ\_{t−1} · x\_0 + √(1 − ᾱ\_{t−1}) · ε̄\_{t−1},&emsp; ε̄\_{t−1} ∼ N(0, I)
+$$x_{t-1} = \sqrt{\bar{\alpha}_{t-1}} \cdot x_0 + \sqrt{1 - \bar{\alpha}_{t-1}} \cdot \bar{\varepsilon}_{t-1}, \qquad \bar{\varepsilon}_{t-1} \sim \mathcal{N}(0, I)$$
 
 Now apply one more forward step:
 
-> x\_t = √α\_t · x\_{t−1} + √(1 − α\_t) · ε\_t
+$$x_t = \sqrt{\alpha_t} \cdot x_{t-1} + \sqrt{1 - \alpha_t} \cdot \varepsilon_t$$
 
-Substitute the inductive hypothesis for x\_{t−1}:
+Substitute the inductive hypothesis for $x_{t-1}$:
 
-> x\_t = √α\_t · \[√ᾱ\_{t−1} · x\_0 + √(1 − ᾱ\_{t−1}) · ε̄\_{t−1}\] + √(1 − α\_t) · ε\_t
+$$x_t = \sqrt{\alpha_t} \cdot \left[\sqrt{\bar{\alpha}_{t-1}} \cdot x_0 + \sqrt{1 - \bar{\alpha}_{t-1}} \cdot \bar{\varepsilon}_{t-1}\right] + \sqrt{1 - \alpha_t} \cdot \varepsilon_t$$
 
-Distribute √α\_t:
+Distribute $\sqrt{\alpha_t}$:
 
-> x\_t = √(α\_t · ᾱ\_{t−1}) · x\_0 + √(α\_t(1 − ᾱ\_{t−1})) · ε̄\_{t−1} + √(1 − α\_t) · ε\_t
+$$x_t = \sqrt{\alpha_t \bar{\alpha}_{t-1}} \cdot x_0 \;+\; \sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})} \cdot \bar{\varepsilon}_{t-1} \;+\; \sqrt{1 - \alpha_t} \cdot \varepsilon_t$$
 
-The first term simplifies immediately since α\_t · ᾱ\_{t−1} = ᾱ\_t by definition of the cumulative product:
+The first term simplifies immediately since $\alpha_t \cdot \bar{\alpha}_{t-1} = \bar{\alpha}_t$ by definition of the cumulative product:
 
-> x\_t = **√ᾱ\_t · x\_0** + √(α\_t(1 − ᾱ\_{t−1})) · ε̄\_{t−1} + √(1 − α\_t) · ε\_t
+$$x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 \;+\; \underbrace{\sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})} \cdot \bar{\varepsilon}_{t-1} + \sqrt{1 - \alpha_t} \cdot \varepsilon_t}_{\text{two independent Gaussians — combine them}}$$
 
-Now focus on the two noise terms. They are independent Gaussians (ε̄\_{t−1} and ε\_t are drawn independently), so their sum is Gaussian with variance equal to the sum of variances:
+Since $\bar{\varepsilon}_{t-1}$ and $\varepsilon_t$ are independent, their weighted sum is Gaussian with variance equal to the sum of their scaled variances:
 
-> variance = α\_t(1 − ᾱ\_{t−1}) + (1 − α\_t)
+$$\text{Var} = \alpha_t(1 - \bar{\alpha}_{t-1}) + (1 - \alpha_t)$$
 
-Expand:
+Expanding:
 
-> = α\_t − α\_t · ᾱ\_{t−1} + 1 − α\_t
+$$= \alpha_t - \alpha_t \bar{\alpha}_{t-1} + 1 - \alpha_t = 1 - \alpha_t \bar{\alpha}_{t-1} = 1 - \bar{\alpha}_t$$
 
-Cancel the α\_t terms:
+So the two noise terms collapse into a single Gaussian:
 
-> = 1 − α\_t · ᾱ\_{t−1}
-
-> = **1 − ᾱ\_t**
-
-So the two noise terms collapse into a single Gaussian with the exact variance we need:
-
-> √(α\_t(1 − ᾱ\_{t−1})) · ε̄\_{t−1} + √(1 − α\_t) · ε\_t &ensp;=&ensp; √(1 − ᾱ\_t) · ε,&emsp; ε ∼ N(0, I)
+$$\sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})} \cdot \bar{\varepsilon}_{t-1} + \sqrt{1 - \alpha_t} \cdot \varepsilon_t \;=\; \sqrt{1 - \bar{\alpha}_t} \cdot \varepsilon, \qquad \varepsilon \sim \mathcal{N}(0, I)$$
 
 Putting it together:
 
-> **x\_t = √ᾱ\_t · x\_0 + √(1 − ᾱ\_t) · ε** &emsp; ∎
+$$\boxed{x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1 - \bar{\alpha}_t} \cdot \varepsilon} \qquad \blacksquare$$
 
 This is why `torch.cumprod` is all we need to precompute the schedule — the entire multi-step chain reduces to one multiplication and one addition.
 
@@ -181,7 +175,7 @@ def q_sample(x0, t, noise):
     return sa * x0 + soa * noise                    # (B, IMG_DIM)
 ```
 
-This is what makes DDPM training efficient — each batch element can jump to a random noise level in O(1).
+This is what makes DDPM training efficient — each batch element can jump to a random noise level in $O(1)$.
 
 ---
 
@@ -189,7 +183,7 @@ This is what makes DDPM training efficient — each batch element can jump to a 
 
 The training objective is beautifully simple. It comes from a simplification of the variational lower bound (ELBO), as shown in Ho et al. (Eq. 14):
 
-> **L = E\[ ‖ε − ε\_θ(x\_t, t)‖² \]**
+$$\mathcal{L} = \mathbb{E}\!\left[\left\|\varepsilon - \varepsilon_\theta(x_t, t)\right\|^2\right]$$
 
 In plain English: sample a random timestep, corrupt the image, ask the network to predict the noise, and minimize the mean squared error.
 
@@ -211,19 +205,19 @@ for epoch in range(EPOCHS):
         optimizer.step()
 ```
 
-Sampling *t* uniformly ensures every noise level gets equal training attention — both the near-clean images (small *t*) and the nearly destroyed ones (large *t*).
+Sampling $t$ uniformly ensures every noise level gets equal training attention — both the near-clean images (small $t$) and the nearly destroyed ones (large $t$).
 
 ---
 
 ## Chapter 6 — Sampling: The Reverse Process
 
-This is where the magic happens. Starting from pure noise x\_T ∼ N(0, I), we denoise one step at a time.
+This is where the magic happens. Starting from pure noise $x_T \sim \mathcal{N}(0, I)$, we denoise one step at a time.
 
 The reverse step formula is derived by applying Bayes' theorem to the forward process, substituting our noise prediction, and simplifying:
 
-> **x\_{t−1} = (1/√α\_t) · \[x\_t − (β\_t / √(1 − ᾱ\_t)) · ε\_θ(x\_t, t)\] + √β\_t · z**
+$$x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left[x_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \cdot \varepsilon_\theta(x_t, t)\right] + \sqrt{\beta_t} \cdot z$$
 
-where z ∼ N(0, I) for t > 0 and z = 0 at the final step.
+where $z \sim \mathcal{N}(0, I)$ for $t > 0$ and $z = 0$ at the final step.
 
 ```python
 @torch.no_grad()
@@ -245,9 +239,9 @@ def p_sample(model, x_t, t_scalar):
         return mean + sqrt_betas[t_scalar] * z
 ```
 
-**Why add noise at every step except the last?** The stochasticity is what gives the model its generative diversity. Two runs from different starting noise produce different images. At t = 0 we want the clean result, so we drop the noise term.
+**Why add noise at every step except the last?** The stochasticity is what gives the model its generative diversity. Two runs from different starting noise produce different images. At $t = 0$ we want the clean result, so we drop the noise term.
 
-To generate a full image, we just loop from T−1 down to 0:
+To generate a full image, we just loop from $T-1$ down to 0:
 
 ```python
 @torch.no_grad()
@@ -266,9 +260,9 @@ Here's the full algorithm at a glance:
 
 | Phase | Formula | What happens |
 |-------|---------|-------------|
-| **Forward** | x\_t = √ᾱ\_t · x\_0 + √(1−ᾱ\_t) · ε | Destroy the image in one shot |
-| **Train** | L = E\[‖ε − ε\_θ(x\_t, t)‖²\] | Teach the network to predict noise |
-| **Sample** | x\_{t−1} = (1/√α\_t)(x\_t − β\_t/√(1−ᾱ\_t) · ε\_θ) + √β\_t · z | Denoise step by step from pure noise |
+| **Forward** | $x_t = \sqrt{\bar{\alpha}_t} \cdot x_0 + \sqrt{1-\bar{\alpha}_t} \cdot \varepsilon$ | Destroy the image in one shot |
+| **Train** | $\mathcal{L} = \mathbb{E}\bigl[\|\varepsilon - \varepsilon_\theta(x_t, t)\|^2\bigr]$ | Teach the network to predict noise |
+| **Sample** | $x_{t-1} = \frac{1}{\sqrt{\alpha_t}}\!\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}} \varepsilon_\theta\right) + \sqrt{\beta_t} z$ | Denoise step by step from pure noise |
 
 With 4,096 tiny training images, a 3-layer MLP, and 20 diffusion steps, the model learns to generate recognizable circles and squares in a few minutes on a laptop.
 
@@ -279,7 +273,7 @@ With 4,096 tiny training images, a 3-layer MLP, and 20 diffusion steps, the mode
 This minimal implementation keeps every moving part visible. To scale up toward production-quality generation:
 
 - **Replace the MLP with a U-Net** to exploit spatial structure via skip connections.
-- **Use sinusoidal time embeddings** when T grows to 1000+.
+- **Use sinusoidal time embeddings** when $T$ grows to 1000+.
 - **Try DDIM** for deterministic, fewer-step sampling at inference time.
 - **Add classifier-free guidance** to condition generation on class labels or text prompts.
 - **Explore score-based models** — the continuous-time generalization of this framework.
