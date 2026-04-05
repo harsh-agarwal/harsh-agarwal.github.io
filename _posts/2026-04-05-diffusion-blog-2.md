@@ -224,6 +224,79 @@ $$x_{t-1} = \frac{1}{\sqrt{\alpha_t}} \left[x_t - \frac{\beta_t}{\sqrt{1 - \bar{
 
 where $z \sim \mathcal{N}(0, I)$ for $t > 0$ and $z = 0$ at the final step.
 
+<details markdown="1">
+<summary style="cursor:pointer; color:#0645ad;">Show proof</summary>
+
+### Derivation of the reverse step
+
+The key insight is that while the reverse marginal $p(x_{t-1} \mid x_t)$ is intractable, the posterior *conditioned on $x_0$* is not.
+
+**Step 1: Apply Bayes' theorem.**
+
+$$q(x_{t-1} \mid x_t, x_0) = \frac{q(x_t \mid x_{t-1})\, q(x_{t-1} \mid x_0)}{q(x_t \mid x_0)}$$
+
+The denominator $q(x_t \mid x_0)$ is just a normalising constant with respect to $x_{t-1}$, so we only need to work with the numerator.
+
+**Step 2: Write the two Gaussian factors.**
+
+From the one-step forward kernel:
+
+$$q(x_t \mid x_{t-1}) = \mathcal{N}\!\left(x_t;\; \sqrt{\alpha_t}\, x_{t-1},\; \beta_t I\right)$$
+
+From the closed-form forward process (Chapter 4):
+
+$$q(x_{t-1} \mid x_0) = \mathcal{N}\!\left(x_{t-1};\; \sqrt{\bar{\alpha}_{t-1}}\, x_0,\; (1-\bar{\alpha}_{t-1}) I\right)$$
+
+**Step 3: Complete the square to find the posterior mean and variance.**
+
+Taking the log of the numerator and collecting terms in $x_{t-1}$:
+
+$$\log q(x_{t-1} \mid x_t, x_0) \propto -\frac{(x_t - \sqrt{\alpha_t}\, x_{t-1})^2}{2\beta_t} - \frac{(x_{t-1} - \sqrt{\bar{\alpha}_{t-1}}\, x_0)^2}{2(1-\bar{\alpha}_{t-1})}$$
+
+Expanding and grouping by powers of $x_{t-1}$, the coefficient of $x_{t-1}^2$ gives the posterior variance:
+
+$$\frac{1}{\tilde{\beta}_t} = \frac{\alpha_t}{\beta_t} + \frac{1}{1-\bar{\alpha}_{t-1}} = \frac{\alpha_t(1-\bar{\alpha}_{t-1}) + \beta_t}{\beta_t(1-\bar{\alpha}_{t-1})}$$
+
+The numerator simplifies using $\beta_t = 1 - \alpha_t$:
+
+$$\alpha_t(1-\bar{\alpha}_{t-1}) + \beta_t = \alpha_t - \bar{\alpha}_t + 1 - \alpha_t = 1 - \bar{\alpha}_t$$
+
+So:
+
+$$\tilde{\beta}_t = \frac{\beta_t(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t}$$
+
+The linear coefficient in $x_{t-1}$ gives the posterior mean:
+
+$$\tilde{\mu}_t(x_t, x_0) = \tilde{\beta}_t\!\left(\frac{\sqrt{\alpha_t}}{\beta_t}\, x_t + \frac{\sqrt{\bar{\alpha}_{t-1}}}{1-\bar{\alpha}_{t-1}}\, x_0\right) = \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}\, x_t + \frac{\sqrt{\bar{\alpha}_{t-1}}\,\beta_t}{1-\bar{\alpha}_t}\, x_0$$
+
+So the posterior is:
+
+$$q(x_{t-1} \mid x_t, x_0) = \mathcal{N}\!\left(x_{t-1};\; \tilde{\mu}_t(x_t, x_0),\; \tilde{\beta}_t I\right)$$
+
+**Step 4: Eliminate $x_0$ using the noise prediction.**
+
+We cannot condition on the unknown $x_0$ at sampling time. From the forward process formula we can invert it:
+
+$$x_0 = \frac{x_t - \sqrt{1-\bar{\alpha}_t}\;\varepsilon_\theta(x_t, t)}{\sqrt{\bar{\alpha}_t}}$$
+
+Substituting into $\tilde{\mu}_t$ and using $\sqrt{\bar{\alpha}_{t-1}}/\sqrt{\bar{\alpha}_t} = 1/\sqrt{\alpha_t}$:
+
+$$\tilde{\mu}_t = \frac{\sqrt{\alpha_t}(1-\bar{\alpha}_{t-1})}{1-\bar{\alpha}_t}\, x_t + \frac{\beta_t}{(1-\bar{\alpha}_t)\sqrt{\alpha_t}}\, x_t - \frac{\beta_t}{\sqrt{\alpha_t}\sqrt{1-\bar{\alpha}_t}}\;\varepsilon_\theta$$
+
+The two $x_t$ terms share the factor $\frac{1}{(1-\bar{\alpha}_t)\sqrt{\alpha_t}}$; their combined bracket is $\alpha_t(1-\bar{\alpha}_{t-1}) + \beta_t = 1-\bar{\alpha}_t$ (from Step 3), so they collapse to $\frac{1}{\sqrt{\alpha_t}}$:
+
+$$\tilde{\mu}_t = \frac{1}{\sqrt{\alpha_t}}\!\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\;\varepsilon_\theta(x_t,t)\right)$$
+
+**Step 5: Draw the sample.**
+
+Sampling from $\mathcal{N}(\tilde{\mu}_t, \tilde{\beta}_t I)$ with the reparameterisation trick, and using $\sigma_t = \sqrt{\beta_t}$ as the noise scale:
+
+$$\boxed{x_{t-1} = \frac{1}{\sqrt{\alpha_t}}\!\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\;\varepsilon_\theta(x_t,t)\right) + \sqrt{\beta_t}\cdot z} \qquad \blacksquare$$
+
+<a href="#" style="color:#0645ad;" onclick="this.closest('details').removeAttribute('open'); return false;">Hide proof</a>
+
+</details>
+
 ```python
 @torch.no_grad()
 def p_sample(model, x_t, t_scalar):
