@@ -23,11 +23,32 @@ The mathematical trick that makes this practical is that we can jump to *any* no
 
 We destroy an image gradually over $T$ timesteps. At each step $t$ we inject noise controlled by a variance parameter $\beta_t$. From $\beta$ we derive two useful quantities:
 
-| Symbol | Definition | Meaning |
-|--------|-----------|---------|
-| $\beta_t$ | chosen per schedule | variance of noise added at step $t$ |
-| $\alpha_t$ | $1 - \beta_t$ | fraction of signal **kept** at step $t$ |
-| $\bar{\alpha}_t$ | $\prod_{s=1}^{t} \alpha_s$ | **cumulative** signal fraction from step 1 to $t$ |
+<table style="width:100%; border-collapse:collapse; margin: 20px 0;">
+  <thead>
+    <tr style="border-bottom: 2px solid #ddd;">
+      <th style="text-align:left; padding: 10px 14px; width:15%;">Symbol</th>
+      <th style="text-align:left; padding: 10px 14px; width:30%;">Definition</th>
+      <th style="text-align:left; padding: 10px 14px;">Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="border-bottom: 1px solid #eee;">
+      <td style="padding: 10px 14px;">$\beta_t$</td>
+      <td style="padding: 10px 14px;">chosen per schedule</td>
+      <td style="padding: 10px 14px;">variance of noise added at step $t$</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #eee;">
+      <td style="padding: 10px 14px;">$\alpha_t$</td>
+      <td style="padding: 10px 14px;">$1 - \beta_t$</td>
+      <td style="padding: 10px 14px;">fraction of signal <strong>kept</strong> at step $t$</td>
+    </tr>
+    <tr>
+      <td style="padding: 10px 14px;">$\bar{\alpha}_t$</td>
+      <td style="padding: 10px 14px;">$\prod_{s=1}^{t} \alpha_s$</td>
+      <td style="padding: 10px 14px;"><strong>cumulative</strong> signal fraction from step 1 to $t$</td>
+    </tr>
+  </tbody>
+</table>
 
 $\bar{\alpha}_t$ is the key number. When $\bar{\alpha}_t \approx 0$ the original image is gone entirely.
 
