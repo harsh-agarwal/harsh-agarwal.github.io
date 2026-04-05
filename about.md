@@ -48,9 +48,9 @@ In Banares I was trying to work on a social venture called Banares Dialogues alo
 
 [Harsh Agarwal](mailto:harshaga@andrew.cmu.edu)  -->
 
-<div style="display:flex; align-items:flex-start; gap:36px; margin-bottom:32px;">
-  <img src="/images/profile.jpg" alt="Harsh Agarwal" style="width:210px; border-radius:8px; flex-shrink:0;" />
-  <div markdown="1">
+<div style="display:flex; align-items:center; gap:36px; margin-bottom:32px;">
+  <img src="/images/profile.jpg" alt="Harsh Agarwal" style="width:180px; border-radius:8px; flex-shrink:0;" />
+  <div markdown="1" style="margin-top:0;">
 
 # Hi, I'm Harsh. 👋
 ### Some call me Bunny, some call me Avi — but most people just call me crazy. I'll take it.
