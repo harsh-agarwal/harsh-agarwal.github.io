@@ -1,4 +1,35 @@
 
+// CSS custom properties — light (default) and dark theme
+:root {
+  --bg: #fff;
+  --text: #333;
+  --text-heading: #222;
+  --text-muted: #666;
+  --border: #eee;
+  --border-dark: #ddd;
+  --link: #4183C4;
+  --selection-bg: #eee;
+  --code-inline-bg: #f0f0f5;
+  --code-inline-text: #c7254e;
+  --blockquote-border: #666;
+  --footer-bg: #eee;
+}
+
+html[data-theme="dark"] {
+  --bg: #1c2028;
+  --text: #d0d4dc;
+  --text-heading: #eaeaea;
+  --text-muted: #8b95a7;
+  --border: #2e3340;
+  --border-dark: #3a4050;
+  --link: #6eb3f7;
+  --selection-bg: #2e3340;
+  --code-inline-bg: #2a2d36;
+  --code-inline-text: #ff8fab;
+  --blockquote-border: #4a5060;
+  --footer-bg: #161920;
+}
+
 //
 // VARIABLES
 //

@@ -3,6 +3,14 @@
   <head>
     <title>{% if page.title %}{{ page.title }} – {% endif %}{{ site.name }} – {{ site.description }}</title>
 
+    <script>
+      (function() {
+        var theme = localStorage.getItem('theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+
     {% include meta.html %}
     {% include mathjax.html %}
 
@@ -35,6 +43,7 @@
             <a href="{{ site.baseurl }}/">Blog</a>
             <a href="{{ site.baseurl }}/about">About</a>
             <a href="{{ site.baseurl }}/resume_april_2026.pdf">Resume</a>
+            <button class="dark-mode-toggle" id="dark-mode-toggle" aria-label="Toggle dark mode"><span id="theme-icon">🌙</span></button>
           </nav>
         </header>
       </div>
@@ -53,6 +62,22 @@
     </div>
 
     {% include analytics.html %}
-    
+
+    <script>
+      (function() {
+        var btn = document.getElementById('dark-mode-toggle');
+        var icon = document.getElementById('theme-icon');
+        function updateIcon() {
+          icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+        }
+        updateIcon();
+        btn.addEventListener('click', function() {
+          var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('theme', next);
+          updateIcon();
+        });
+      })();
+    </script>
   </body>
 </html>
