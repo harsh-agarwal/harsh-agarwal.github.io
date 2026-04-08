@@ -1,6 +1,6 @@
 ---
 layout: playground-post
-title: "Optimizers 101: From SGD to Muon, and Why Toy Problems Lie to You"
+title: "Optimizers 101: Visualizing SGD, Adam, and Muon — and Building the Toy Problem Muon Actually Needs"
 date: 2026-04-09
 playground_script: /playgrounds/muon-demo.js
 ---
