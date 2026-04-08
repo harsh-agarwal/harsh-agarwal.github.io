@@ -17,10 +17,9 @@ Let's start with the four optimizers I wanted to compare, and what each one actu
 
 The OG. Compute the gradient, keep a running velocity, step in that direction.
 
-```
-v_t = μ · v_{t-1} + g_t
-θ_t = θ_{t-1} - lr · v_t
-```
+$$v_t = \mu \cdot v_{t-1} + g_t$$
+
+$$\theta_t = \theta_{t-1} - \alpha \cdot v_t$$
 
 Momentum (typically μ=0.9) smooths out the noise and helps you barrel through flat regions. The problem: it treats every parameter identically. If the loss surface is a narrow valley (like Rosenbrock's banana), SGD bounces between the walls instead of sliding down the floor.
 
@@ -28,13 +27,13 @@ Momentum (typically μ=0.9) smooths out the noise and helps you barrel through f
 
 Kingma & Ba (2014) combined momentum with per-parameter adaptive learning rates. The key insight: track both the first moment (mean of gradients) and second moment (mean of squared gradients), then divide one by the other.
 
-```
-m_t = β₁·m_{t-1} + (1-β₁)·g_t          # momentum
-v_t = β₂·v_{t-1} + (1-β₂)·g_t²          # RMSprop-like
-m̂_t = m_t / (1 - β₁ᵗ)                   # bias correction
-v̂_t = v_t / (1 - β₂ᵗ)                   # bias correction
-θ_t = θ_{t-1} - lr · m̂_t / (√v̂_t + ε)
-```
+$$m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t \qquad \text{(momentum)}$$
+
+$$v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \qquad \text{(RMSprop-like)}$$
+
+$$\hat{m}_t = \frac{m_t}{1 - \beta_1^t}, \qquad \hat{v}_t = \frac{v_t}{1 - \beta_2^t} \qquad \text{(bias correction)}$$
+
+$$\theta_t = \theta_{t-1} - \alpha \cdot \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \varepsilon}$$
 
 The division by √v̂ means parameters with consistently large gradients get smaller effective learning rates, and parameters with small gradients get larger ones. This is why Adam handles saddle points and ravines better than SGD — it automatically rescales per coordinate.
 
@@ -42,9 +41,7 @@ The division by √v̂ means parameters with consistently large gradients get sm
 
 Loshchilov & Hutter (2017) noticed something subtle: the way Adam implements weight decay is mathematically wrong. Standard L2 regularization adds λθ to the gradient *before* the adaptive scaling, which means the regularization itself gets scaled down by the second moment. AdamW fixes this by applying weight decay *directly to the parameters*, decoupled from the adaptive step:
 
-```
-θ_t = θ_{t-1} - lr · (m̂_t / (√v̂_t + ε) + λ · θ_{t-1})
-```
+$$\theta_t = \theta_{t-1} - \alpha \left( \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \varepsilon} + \lambda \cdot \theta_{t-1} \right)$$
 
 Small change, significant impact. AdamW became the de facto standard for training transformers and has held that position for years.
 
@@ -114,10 +111,7 @@ The key detail: training data follows a **Zipf distribution**. "Cat" shows up in
 
 Each training batch produces a gradient matrix G. Because "cat" dominates, G's SVD looks something like:
 
-```
-G = U × diag(50, 12, 3, 0.8, ...) × Vᵀ
-      ↑ cat direction dominates
-```
+$$G = U \times \operatorname{diag}(50,\ 12,\ 3,\ 0.8,\ \ldots) \times V^\top \qquad \leftarrow \text{cat direction dominates}$$
 
 **SGD** follows this gradient directly — it over-optimizes "cat" and barely touches "quokka."
 
@@ -125,10 +119,9 @@ G = U × diag(50, 12, 3, 0.8, ...) × Vᵀ
 
 **Muon** orthogonalizes the gradient:
 
-```
-Before: G = U × diag(50, 12, 3, 0.8, ...) × Vᵀ  ← cat dominates
-After:  O = U × diag( 1,  1, 1,  1,  ...) × Vᵀ  ← all directions equal
-```
+$$\underbrace{G = U \times \operatorname{diag}(50,\ 12,\ 3,\ 0.8,\ \ldots) \times V^\top}_{\text{before: cat dominates}}$$
+
+$$\underbrace{O = U \times \operatorname{diag}(1,\ 1,\ 1,\ 1,\ \ldots) \times V^\top}_{\text{after: all directions equal}}$$
 
 Every direction — including the "quokka" direction — gets the same update magnitude. The directions themselves still come from the data (U and V are unchanged), so Muon isn't ignoring the gradient. It's just removing the magnitude imbalance.
 
