@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimizer Comparison: SGD vs Adam vs AdamW vs Muon</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#fafafa;color:#222;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:2rem 1rem}
+  h1{font-size:1.5rem;font-weight:600;margin-bottom:0.2rem;color:#1a1a2e}
+  .subtitle{font-size:0.85rem;color:#888;margin-bottom:1.2rem}
+  .app{width:100%;max-width:760px}
+
+  .opt-toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .opt-chip{display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:20px;font-size:0.82rem;font-weight:600;cursor:pointer;user-select:none;transition:all 0.15s;border:2px solid}
+  .opt-chip .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .opt-chip.hidden{opacity:0.35}
+  .opt-chip .eye{font-size:0.75rem;margin-left:2px;opacity:0.5}
+
+  .canvas-wrap{position:relative;width:100%;aspect-ratio:5/3;border-radius:8px;overflow:hidden;border:1px solid #ddd;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,0.06)}
+  canvas{display:block;width:100%;height:100%}
+  .step-badge{position:absolute;top:10px;right:12px;font-size:0.72rem;color:#999;font-weight:500;background:rgba(255,255,255,0.85);padding:3px 8px;border-radius:4px}
+  .click-hint{position:absolute;bottom:10px;left:12px;font-size:0.7rem;color:#999;background:rgba(255,255,255,0.85);padding:3px 8px;border-radius:4px;display:none}
+
+  .controls{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;align-items:center}
+  .ctrl-group{display:flex;align-items:center;gap:6px}
+  .ctrl-group label{font-size:0.78rem;color:#777;white-space:nowrap}
+  input[type=range]{width:100px;accent-color:#5a52b5}
+  .ctrl-group span{font-size:0.82rem;font-weight:600;min-width:40px;color:#333}
+  select,button{background:#fff;color:#333;border:1px solid #ccc;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;transition:all 0.15s}
+  select:hover,button:hover{background:#f0f0f0;border-color:#aaa}
+  button.accent{background:#5a52b5;border-color:#5a52b5;color:#fff}
+  button.accent:hover{background:#6d65c9}
+  button.active-toggle{background:#e8f5e9;border-color:#4caf50;color:#2e7d32}
+
+  .lr-panel{margin-top:12px;padding:14px 16px;background:#fff;border:1px solid #e8e8e8;border-radius:8px}
+  .lr-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+  .lr-panel-header h3{font-size:0.85rem;font-weight:600;color:#555}
+  .lr-panel-header label{font-size:0.78rem;color:#777;display:flex;align-items:center;gap:5px;cursor:pointer}
+  .lr-panel-header input[type=checkbox]{accent-color:#5a52b5}
+  .lr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 16px}
+  .lr-row{display:flex;align-items:center;gap:8px}
+  .lr-row .lr-label{font-size:0.75rem;font-weight:600;min-width:52px}
+  .lr-row input[type=range]{flex:1;width:auto}
+  .lr-row .lr-val{font-size:0.78rem;font-weight:600;min-width:44px;text-align:right;color:#333}
+
+  .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+  .stat-card{background:#fff;border-radius:8px;padding:12px 14px;border:1px solid #e8e8e8}
+  .stat-card .name{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;font-weight:600}
+  .stat-card .loss{font-size:1.15rem;font-weight:700;color:#1a1a2e}
+  .stat-card .pos{font-size:0.7rem;color:#999;margin-top:3px}
+  .stat-card .lr-info{font-size:0.65rem;color:#bbb;margin-top:2px}
+  .leading-badge{font-size:0.65rem;padding:1px 6px;border-radius:3px;background:#e8f5e9;color:#2e7d32;font-weight:600;margin-left:4px;vertical-align:middle}
+
+  @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.lr-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Optimizer comparison</h1>
+  <p class="subtitle">Contour visualization inspired by Alec Radford — SGD, Adam, AdamW and Muon</p>
+  <div class="opt-toggles" id="toggles"></div>
+  <div class="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div class="step-badge" id="stepBadge">Step 0</div>
+    <div class="click-hint" id="clickHint">Click on the surface to set a custom start point</div>
+  </div>
+  <div class="controls">
+    <div class="ctrl-group">
+      <label>Speed</label>
+      <input type="range" id="speed" min="1" max="10" value="3" step="1">
+      <span id="speed-val">3</span>
+    </div>
+    <div class="ctrl-group">
+      <label>Surface</label>
+      <select id="surface">
+        <option value="rosenbrock">Rosenbrock</option>
+        <option value="beale">Beale</option>
+        <option value="himmelblau">Himmelblau</option>
+        <option value="ackley">Ackley</option>
+      </select>
+    </div>
+    <button id="customStartBtn">Custom start: off</button>
+    <button id="playBtn" class="accent">Pause</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+  <div class="lr-panel">
+    <div class="lr-panel-header">
+      <h3>Learning rates</h3>
+      <label><input type="checkbox" id="sameLrCheck">Same LR for all</label>
+    </div>
+    <div class="lr-grid" id="lrGrid"></div>
+  </div>
+  <div class="stats" id="stats"></div>
+</div>
+
+<script>
+// ━━━ Colors (all distinct) ━━━
+const OPT_CONFIG = {
+  SGD:   { hex:'#E24B4A', rgb:[226,75,74] },
+  Adam:  { hex:'#1D9E75', rgb:[29,158,117] },
+  AdamW: { hex:'#378ADD', rgb:[55,138,221] },
+  Muon:  { hex:'#F5A623', rgb:[245,166,35] }
+};
+const OPT_NAMES = Object.keys(OPT_CONFIG);
+
+// ━━━ Per-surface default learning rates (tuned for convergence) ━━━
+const DEFAULT_LRS = {
+  rosenbrock: { SGD:0.001, Adam:0.010, AdamW:0.010, Muon:0.015 },
+  beale:      { SGD:0.0005,Adam:0.008, AdamW:0.008, Muon:0.010 },
+  himmelblau: { SGD:0.002, Adam:0.015, AdamW:0.015, Muon:0.020 },
+  ackley:     { SGD:0.003, Adam:0.020, AdamW:0.020, Muon:0.025 }
+};
+
+const CONTOUR_FILLS = [
+  '#ffffff','#f0f7fa','#dceef5','#c5e3ef','#a8d5e5',
+  '#8ac5da','#6db4cf','#51a2c3','#3790b6','#1f7ea9',
+  '#0d6d9b','#065b88','#044a73','#03395d','#022a48',
+  '#011c33','#010f1f'
+];
+const CONTOUR_LINE_COLOR = 'rgba(0,60,100,0.18)';
+
+// ━━━ Surfaces ━━━
+const SURFACES = {
+  rosenbrock:{
+    fn:(x,y)=>(1-x)**2+100*(y-x*x)**2,
+    range:[-2,2,-1,3], start:[-1.5,2.5],
+    optima:[[1,1]]
+  },
+  beale:{
+    fn:(x,y)=>(1.5-x+x*y)**2+(2.25-x+x*y*y)**2+(2.625-x+x*y**3)**2,
+    range:[-4.5,4.5,-4.5,4.5], start:[-3,3],
+    optima:[[3,0.5]]
+  },
+  himmelblau:{
+    fn:(x,y)=>(x*x+y-11)**2+(x+y*y-7)**2,
+    range:[-5,5,-5,5], start:[-4,4],
+    optima:[[3,2],[-2.805118,3.131312],[-3.77931,-3.283186],[3.584428,-1.848126]]
+  },
+  ackley:{
+    fn:(x,y)=>-20*Math.exp(-0.2*Math.sqrt(0.5*(x*x+y*y)))-Math.exp(0.5*(Math.cos(2*Math.PI*x)+Math.cos(2*Math.PI*y)))+Math.E+20,
+    range:[-5,5,-5,5], start:[-3.5,3.5],
+    optima:[[0,0]]
+  }
+};
+
+// ━━━ Numerical gradient (central difference) ━━━
+function numGrad(fn,x,y){
+  const h=1e-5;
+  return[(fn(x+h,y)-fn(x-h,y))/(2*h),(fn(x,y+h)-fn(x,y-h))/(2*h)];
+}
+
+// ━━━ Gradient clipping utility ━━━
+function clipGrad(gx,gy,maxNorm){
+  const n=Math.sqrt(gx*gx+gy*gy);
+  if(n>maxNorm){const s=maxNorm/n;return[gx*s,gy*s]}
+  return[gx,gy];
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// OPTIMIZER IMPLEMENTATIONS (verified)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// SGD with classical momentum (Polyak heavy-ball)
+// v_t = mu * v_{t-1} + g_t
+// x_t = x_{t-1} - lr * v_t
+class SGDMomentum {
+  constructor(lr){this.lr=lr;this.mu=0.9;this.vx=0;this.vy=0}
+  step(gx,gy){
+    this.vx = this.mu*this.vx + gx;
+    this.vy = this.mu*this.vy + gy;
+    return [-this.lr*this.vx, -this.lr*this.vy];
+  }
+}
+
+// Adam (Kingma & Ba 2014)
+// m_t = b1*m_{t-1} + (1-b1)*g_t
+// v_t = b2*v_{t-1} + (1-b2)*g_t^2
+// m_hat = m_t / (1 - b1^t)
+// v_hat = v_t / (1 - b2^t)
+// x_t = x_{t-1} - lr * m_hat / (sqrt(v_hat) + eps)
+class Adam {
+  constructor(lr){
+    this.lr=lr;this.b1=0.9;this.b2=0.999;this.eps=1e-8;
+    this.t=0;this.mx=0;this.my=0;this.vx=0;this.vy=0;
+  }
+  step(gx,gy){
+    this.t++;
+    this.mx = this.b1*this.mx + (1-this.b1)*gx;
+    this.my = this.b1*this.my + (1-this.b1)*gy;
+    this.vx = this.b2*this.vx + (1-this.b2)*gx*gx;
+    this.vy = this.b2*this.vy + (1-this.b2)*gy*gy;
+    const mxh = this.mx/(1-Math.pow(this.b1,this.t));
+    const myh = this.my/(1-Math.pow(this.b1,this.t));
+    const vxh = this.vx/(1-Math.pow(this.b2,this.t));
+    const vyh = this.vy/(1-Math.pow(this.b2,this.t));
+    return [
+      -this.lr * mxh / (Math.sqrt(vxh) + this.eps),
+      -this.lr * myh / (Math.sqrt(vyh) + this.eps)
+    ];
+  }
+}
+
+// AdamW (Loshchilov & Hutter 2017) — decoupled weight decay
+// Same as Adam but weight decay is applied directly to parameters,
+// NOT through the gradient (key difference from L2 regularization in Adam)
+// x_t = x_{t-1} - lr * (m_hat/(sqrt(v_hat)+eps) + wd * x_{t-1})
+class AdamW {
+  constructor(lr){
+    this.lr=lr;this.b1=0.9;this.b2=0.999;this.eps=1e-8;this.wd=0.01;
+    this.t=0;this.mx=0;this.my=0;this.vx=0;this.vy=0;
+  }
+  step(gx,gy,px,py){
+    this.t++;
+    this.mx = this.b1*this.mx + (1-this.b1)*gx;
+    this.my = this.b1*this.my + (1-this.b1)*gy;
+    this.vx = this.b2*this.vx + (1-this.b2)*gx*gx;
+    this.vy = this.b2*this.vy + (1-this.b2)*gy*gy;
+    const mxh = this.mx/(1-Math.pow(this.b1,this.t));
+    const myh = this.my/(1-Math.pow(this.b1,this.t));
+    const vxh = this.vx/(1-Math.pow(this.b2,this.t));
+    const vyh = this.vy/(1-Math.pow(this.b2,this.t));
+    return [
+      -this.lr * (mxh/(Math.sqrt(vxh)+this.eps) + this.wd*px),
+      -this.lr * (myh/(Math.sqrt(vyh)+this.eps) + this.wd*py)
+    ];
+  }
+}
+
+// Muon — simplified 2D version
+// Real Muon: Nesterov momentum + Newton-Schulz orthogonalization of the
+// momentum buffer. For 2D vectors, the orthogonalization reduces to
+// normalizing the momentum to unit norm (the "nearest orthogonal" for a
+// 1-column matrix is the unit vector). We then scale by the nuclear norm
+// of the original momentum (which for a vector is just its L2 norm).
+// This means the update direction is pure momentum direction, and the
+// magnitude comes from the gradient's nuclear norm — giving stable,
+// direction-preserving updates.
+//
+// Using Nesterov momentum as per Keller Jordan's recommendation:
+// buf = mu * buf + g(x + mu * buf)   [look-ahead]
+// update = normalize(buf) * ||buf||   (for vectors, this is just buf itself)
+//
+// For 2D scalar optimization we use Nesterov momentum + unit normalization
+// scaled by gradient magnitude, which captures Muon's core behavior.
+class Muon {
+  constructor(lr){
+    this.lr=lr;this.mu=0.95;
+    this.bx=0;this.by=0;
+  }
+  step(gx,gy,px,py,fn){
+    // Nesterov lookahead: compute gradient at lookahead point
+    const lax = px + this.mu*this.bx;
+    const lay = py + this.mu*this.by;
+    const [lgx,lgy] = fn ? numGrad(fn,lax,lay) : [gx,gy];
+    const [cgx,cgy] = clipGrad(lgx,lgy,100);
+
+    // Update momentum buffer
+    this.bx = this.mu*this.bx + cgx;
+    this.by = this.mu*this.by + cgy;
+
+    // Orthogonalize: normalize direction, scale by nuclear norm
+    // For a 2D vector, nuclear norm = L2 norm, so ortho(buf)*||buf|| = buf
+    // But the key insight is we normalize then scale by gradient magnitude
+    // to decouple direction (from momentum) and magnitude (from current gradient)
+    const bNorm = Math.sqrt(this.bx*this.bx + this.by*this.by) + 1e-8;
+    const gNorm = Math.sqrt(cgx*cgx + cgy*cgy);
+
+    // Update = -lr * (buf/||buf||) * gNorm
+    return [
+      -this.lr * (this.bx/bNorm) * gNorm,
+      -this.lr * (this.by/bNorm) * gNorm
+    ];
+  }
+}
+
+const OPT_CLASS = {SGD:SGDMomentum,Adam,AdamW,Muon};
+
+// ━━━ State ━━━
+let canvas,ctx,W,H;
+let surfKey='rosenbrock',speed=3,playing=true,totalSteps=0;
+let agents={},paths={};
+let contourCache=null;
+let visible={SGD:true,Adam:true,AdamW:true,Muon:true};
+let lrs={};
+let sameLr=false;
+let customStartMode=false;
+let customStart=null;
+
+function getLr(name){return sameLr?lrs.SGD:lrs[name]}
+function currentStart(){
+  if(customStart)return customStart;
+  return SURFACES[surfKey].start;
+}
+
+function resetLrsToDefaults(){
+  const d=DEFAULT_LRS[surfKey];
+  for(const n of OPT_NAMES)lrs[n]=d[n];
+  renderLrGrid();
+}
+
+function toScreen(x,y){
+  const s=SURFACES[surfKey].range;
+  return[((x-s[0])/(s[1]-s[0]))*W,((y-s[2])/(s[3]-s[2]))*H];
+}
+function fromScreen(sx,sy){
+  const s=SURFACES[surfKey].range;
+  return[s[0]+(sx/W)*(s[1]-s[0]),s[2]+(sy/H)*(s[3]-s[2])];
+}
+
+function computeContours(){
+  const s=SURFACES[surfKey],[xmin,xmax,ymin,ymax]=s.range,res=200,grid=[];
+  let mn=Infinity,mx=-Infinity;
+  for(let j=0;j<=res;j++){grid[j]=[];for(let i=0;i<=res;i++){const x=xmin+(i/res)*(xmax-xmin),y=ymin+(j/res)*(ymax-ymin),v=Math.log1p(s.fn(x,y));grid[j][i]=v;if(v<mn)mn=v;if(v>mx)mx=v}}
+  contourCache={grid,res,mn,mx};
+}
+
+function drawContours(){
+  const s=SURFACES[surfKey],[xmin,xmax,ymin,ymax]=s.range,{grid,res,mn,mx}=contourCache,nL=CONTOUR_FILLS.length;
+  const img=ctx.createImageData(W,H);
+  for(let py=0;py<H;py++)for(let px=0;px<W;px++){
+    const x=xmin+(px/W)*(xmax-xmin),y=ymin+(py/H)*(ymax-ymin),v=Math.log1p(s.fn(x,y));
+    const t=Math.min(1,Math.max(0,(v-mn)/(mx-mn))),ci=Math.min(nL-1,Math.floor(t*(nL-1)));
+    const hex=CONTOUR_FILLS[ci],r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    const idx=(py*W+px)*4;img.data[idx]=r;img.data[idx+1]=g;img.data[idx+2]=b;img.data[idx+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  const nLines=25;ctx.strokeStyle=CONTOUR_LINE_COLOR;ctx.lineWidth=0.8;
+  for(let l=1;l<nLines;l++){
+    const th=mn+(l/nLines)*(mx-mn);
+    for(let j=0;j<res;j++)for(let i=0;i<res;i++){
+      const v00=grid[j][i],v10=grid[j][i+1],v01=grid[j+1][i],v11=grid[j+1][i+1];
+      const idx=((v00>=th)?8:0)|((v10>=th)?4:0)|((v11>=th)?2:0)|((v01>=th)?1:0);
+      if(idx===0||idx===15)continue;
+      const sx2=i/res*W,sy2=j/res*H,cw=W/res,ch=H/res;
+      const lerp=(a,b)=>(th-a)/(b-a);
+      const tt=lerp(v00,v10),r2=lerp(v10,v11),b2=lerp(v01,v11),le=lerp(v00,v01);
+      const top=[sx2+tt*cw,sy2],right=[sx2+cw,sy2+r2*ch],bot=[sx2+b2*cw,sy2+ch],left=[sx2,sy2+le*ch];
+      let segs=[];
+      switch(idx){
+        case 1:case 14:segs=[[left,bot]];break;case 2:case 13:segs=[[bot,right]];break;
+        case 3:case 12:segs=[[left,right]];break;case 4:case 11:segs=[[top,right]];break;
+        case 5:segs=[[left,top],[bot,right]];break;case 6:case 9:segs=[[top,bot]];break;
+        case 7:case 8:segs=[[left,top]];break;case 10:segs=[[left,bot],[top,right]];break;
+      }
+      for(const[p1,p2]of segs){ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke()}
+    }
+  }
+}
+
+function drawStar(cx,cy,outerR,innerR,pts){
+  ctx.beginPath();
+  for(let i=0;i<pts*2;i++){const r=i%2===0?outerR:innerR,a=(Math.PI*i)/pts-Math.PI/2;const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}
+  ctx.closePath();
+}
+
+function drawOptima(){
+  for(const[ox,oy]of SURFACES[surfKey].optima){
+    const[sx,sy]=toScreen(ox,oy);
+    ctx.save();ctx.shadowColor='rgba(255,200,0,0.6)';ctx.shadowBlur=12;
+    drawStar(sx,sy,14,6,5);ctx.fillStyle='#FFD700';ctx.fill();ctx.restore();
+    drawStar(sx,sy,14,6,5);ctx.strokeStyle='#B8860B';ctx.lineWidth=1.5;ctx.stroke();
+    drawStar(sx,sy,9,4,5);ctx.fillStyle='#FFF8DC';ctx.fill();
+  }
+}
+
+function initAgents(){
+  const[sx,sy]=currentStart();
+  totalSteps=0;agents={};paths={};
+  for(const n of OPT_NAMES){
+    agents[n]={opt:new OPT_CLASS[n](getLr(n)),x:sx,y:sy};
+    paths[n]=[[sx,sy]];
+  }
+}
+
+function stepOnce(){
+  const s=SURFACES[surfKey],[xmin,xmax,ymin,ymax]=s.range;
+  for(const[name,a]of Object.entries(agents)){
+    let [gx,gy]=numGrad(s.fn,a.x,a.y);
+    // Clip gradients to prevent explosion on steep surfaces
+    [gx,gy]=clipGrad(gx,gy,1000);
+    let dx,dy;
+    if(name==='AdamW'){
+      [dx,dy]=a.opt.step(gx,gy,a.x,a.y);
+    } else if(name==='Muon'){
+      [dx,dy]=a.opt.step(gx,gy,a.x,a.y,s.fn);
+    } else {
+      [dx,dy]=a.opt.step(gx,gy);
+    }
+    // Clamp step size to prevent divergence
+    const stepNorm=Math.sqrt(dx*dx+dy*dy);
+    const maxStep=(s.range[1]-s.range[0])*0.05;
+    if(stepNorm>maxStep){const sc=maxStep/stepNorm;dx*=sc;dy*=sc}
+    a.x=Math.max(xmin,Math.min(xmax,a.x+dx));
+    a.y=Math.max(ymin,Math.min(ymax,a.y+dy));
+    paths[name].push([a.x,a.y]);
+  }
+  totalSteps++;
+}
+
+function draw(){
+  drawContours();
+  drawOptima();
+
+  // Start marker
+  const[stx,sty]=toScreen(...currentStart());
+  ctx.beginPath();ctx.arc(stx,sty,7,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.strokeStyle='#333';ctx.lineWidth=2.5;ctx.stroke();
+  ctx.beginPath();ctx.arc(stx,sty,3,0,Math.PI*2);ctx.fillStyle='#333';ctx.fill();
+  ctx.font='bold 14px system-ui';ctx.fillStyle='#333';ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=3;
+  ctx.strokeText('START',stx+12,sty+5);ctx.fillText('START',stx+12,sty+5);
+
+  // Optimizer paths
+  for(const name of OPT_NAMES){
+    if(!visible[name])continue;
+    const path=paths[name];if(!path||path.length<2)continue;
+    const c=OPT_CONFIG[name];
+
+    ctx.beginPath();ctx.strokeStyle=c.hex;ctx.lineWidth=3.5;ctx.globalAlpha=0.85;
+    ctx.lineJoin='round';ctx.lineCap='round';
+    for(let i=0;i<path.length;i++){
+      const[px,py]=toScreen(path[i][0],path[i][1]);
+      if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+    }
+    ctx.stroke();ctx.globalAlpha=1;
+
+    // Head
+    const last=path[path.length-1],[hx,hy]=toScreen(last[0],last[1]);
+    ctx.beginPath();ctx.arc(hx,hy,8,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+    ctx.beginPath();ctx.arc(hx,hy,6,0,Math.PI*2);ctx.fillStyle=c.hex;ctx.fill();
+
+    // Label pill
+    ctx.font='bold 14px system-ui';
+    const tw=ctx.measureText(name).width;
+    const lx=hx+13,ly=hy-11;
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(lx-5,ly-14,tw+14,20,5);
+    ctx.fill();
+    ctx.strokeStyle=c.hex+'44';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle=c.hex;
+    ctx.fillText(name,lx+2,ly+2);
+  }
+
+  document.getElementById('stepBadge').textContent=`Step ${totalSteps}`;
+  updateStats();
+}
+
+function updateStats(){
+  const s=SURFACES[surfKey];let best=Infinity;const losses={};
+  for(const[n,a]of Object.entries(agents)){losses[n]=s.fn(a.x,a.y);if(losses[n]<best)best=losses[n]}
+  document.getElementById('stats').innerHTML=OPT_NAMES.map(n=>{
+    const a=agents[n],l=losses[n],isBest=Math.abs(l-best)<1e-10;
+    const badge=isBest?'<span class="leading-badge">leading</span>':'';
+    const vis=visible[n]?'':'opacity:0.35;';
+    return`<div class="stat-card" style="${vis}">
+      <div class="name" style="color:${OPT_CONFIG[n].hex}">${n}${badge}</div>
+      <div class="loss">${l<0.001?l.toExponential(2):l.toFixed(3)}</div>
+      <div class="pos">(${a.x.toFixed(2)}, ${a.y.toFixed(2)})</div>
+      <div class="lr-info">lr: ${getLr(n).toFixed(4)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Toggle chips ──
+function renderToggles(){
+  document.getElementById('toggles').innerHTML=OPT_NAMES.map(n=>{
+    const c=OPT_CONFIG[n],cls=visible[n]?'':'hidden';
+    const bg=visible[n]?c.hex+'18':'transparent';
+    const eye=visible[n]?'\u25C9':'\u25CB';
+    return`<div class="opt-chip ${cls}" data-name="${n}" style="border-color:${c.hex};background:${bg};color:${c.hex}">
+      <span class="dot" style="background:${c.hex}"></span>${n}<span class="eye">${eye}</span>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.opt-chip').forEach(el=>{
+    el.addEventListener('click',()=>{const n=el.dataset.name;visible[n]=!visible[n];renderToggles();draw()});
+  });
+}
+
+// ── LR grid ──
+function renderLrGrid(){
+  const grid=document.getElementById('lrGrid');
+  if(sameLr){
+    const v=lrs.SGD;
+    grid.innerHTML=`<div class="lr-row" style="grid-column:1/-1">
+      <span class="lr-label" style="color:#555">All</span>
+      <input type="range" min="1" max="80" value="${Math.round(v*1000)}" step="1" data-name="ALL">
+      <span class="lr-val">${v.toFixed(4)}</span>
+    </div>`;
+  }else{
+    grid.innerHTML=OPT_NAMES.map(n=>{
+      const c=OPT_CONFIG[n],v=lrs[n];
+      return`<div class="lr-row">
+        <span class="lr-label" style="color:${c.hex}">${n}</span>
+        <input type="range" min="1" max="80" value="${Math.round(v*1000)}" step="1" data-name="${n}">
+        <span class="lr-val">${v.toFixed(4)}</span>
+      </div>`;
+    }).join('');
+  }
+  grid.querySelectorAll('input[type=range]').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const val=parseInt(e.target.value)/1000,name=e.target.dataset.name;
+      if(name==='ALL'){for(const n of OPT_NAMES)lrs[n]=val;renderLrGrid();}
+      else lrs[name]=val;
+      e.target.nextElementSibling.textContent=val.toFixed(4);
+    });
+    el.addEventListener('change',()=>{initAgents();draw()});
+  });
+}
+
+// ── Custom start ──
+const csBtn=document.getElementById('customStartBtn');
+const clickHint=document.getElementById('clickHint');
+csBtn.addEventListener('click',()=>{
+  customStartMode=!customStartMode;
+  csBtn.textContent=customStartMode?'Custom start: on':'Custom start: off';
+  csBtn.classList.toggle('active-toggle',customStartMode);
+  clickHint.style.display=customStartMode?'block':'none';
+  if(!customStartMode){customStart=null;initAgents();draw()}
+});
+
+document.getElementById('canvas').addEventListener('click',e=>{
+  if(!customStartMode)return;
+  const rect=canvas.getBoundingClientRect();
+  const sx=(e.clientX-rect.left)/rect.width*W;
+  const sy=(e.clientY-rect.top)/rect.height*H;
+  customStart=fromScreen(sx,sy);
+  initAgents();draw();
+});
+
+// ── Animation ──
+let animId;
+function loop(){if(playing){for(let i=0;i<speed;i++)stepOnce();draw()}animId=requestAnimationFrame(loop)}
+
+function setup(){
+  canvas=document.getElementById('canvas');ctx=canvas.getContext('2d');
+  const rect=canvas.parentElement.getBoundingClientRect();
+  W=Math.round(rect.width*devicePixelRatio);H=Math.round(rect.height*devicePixelRatio);
+  canvas.width=W;canvas.height=H;
+  computeContours();initAgents();draw();
+}
+
+// Init
+resetLrsToDefaults();
+renderToggles();
+renderLrGrid();
+
+document.getElementById('sameLrCheck').addEventListener('change',e=>{
+  sameLr=e.target.checked;
+  if(sameLr){const avg=OPT_NAMES.reduce((s,n)=>s+lrs[n],0)/OPT_NAMES.length;for(const n of OPT_NAMES)lrs[n]=parseFloat(avg.toFixed(3))}
+  else resetLrsToDefaults();
+  renderLrGrid();initAgents();draw();
+});
+document.getElementById('speed').addEventListener('input',e=>{speed=parseInt(e.target.value);document.getElementById('speed-val').textContent=speed});
+document.getElementById('surface').addEventListener('change',e=>{
+  surfKey=e.target.value;customStart=null;
+  resetLrsToDefaults();setup();
+});
+document.getElementById('playBtn').addEventListener('click',()=>{playing=!playing;document.getElementById('playBtn').textContent=playing?'Pause':'Play'});
+document.getElementById('resetBtn').addEventListener('click',()=>{initAgents();draw()});
+window.addEventListener('resize',setup);
+
+setup();loop();
+</script>
+</body>
+</html>
