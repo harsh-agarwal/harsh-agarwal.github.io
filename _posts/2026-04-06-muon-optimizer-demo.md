@@ -1,7 +1,8 @@
 ---
-layout: post
+layout: playground-post
 title: "Why Muon Wins: An Interactive Demo"
 date: 2026-04-06
+playground_script: /playgrounds/muon-demo.js
 ---
 
 Muon is a recently proposed optimizer for neural networks that orthogonalizes gradients using Newton-Schulz iterations before applying updates. The intuition: instead of following the raw gradient (which is dominated by the largest singular directions), Muon normalizes all singular values to 1 — giving equal update strength to every direction in weight space.
@@ -13,4 +14,3 @@ This imbalance creates a skewed gradient dominated by a few large singular value
 Hit **Run** and watch the per-pair error bars at the bottom. The rare pairs (quokka, sushi, mars) are where Muon's advantage shows most clearly.
 
 <div id="playground-muon-root" style="margin: 2em 0;"></div>
-<script src="{{ site.baseurl }}/playgrounds/muon-demo.js"></script>
