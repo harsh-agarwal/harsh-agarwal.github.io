@@ -70,6 +70,13 @@
     letter-spacing: 0;
     font-size: 13px;
   }
+  .ctrl-label .info-tip {
+    color: #7a7890;
+    font-weight: normal;
+    font-family: Georgia, serif;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
   .ctrl-divider { width: 1px; height: 24px; background: var(--border); }
 
   .token-chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -185,6 +192,34 @@
   .out-card .oc-label { color: var(--muted); margin-bottom: 6px; }
   .out-formula { font-family: var(--mono); font-size: 11px; color: var(--purple); line-height: 1.8; }
   .active-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; margin: 2px; }
+
+  /* INFO TOOLTIPS */
+  .info-tip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 1px solid #4a4860; color: #7a7890;
+    font-size: 9px; font-style: italic; font-family: Georgia, serif;
+    cursor: default; position: relative; flex-shrink: 0;
+    user-select: none; vertical-align: middle; margin-left: 5px; line-height: 1;
+  }
+  .info-tip:hover { border-color: var(--purple); color: var(--purple); }
+  .info-tip .tip-body {
+    visibility: hidden; opacity: 0;
+    position: absolute; left: 50%; bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    background: #1f1f28; border: 1px solid #3a3a52; border-radius: 8px;
+    padding: 10px 13px; font-size: 12px; font-style: normal;
+    font-family: -apple-system, 'Segoe UI', sans-serif; color: #e8e6f0;
+    white-space: normal; width: 240px; line-height: 1.6;
+    z-index: 200; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    pointer-events: none; transition: opacity .15s;
+  }
+  .info-tip:hover .tip-body { visibility: visible; opacity: 1; }
+  .info-tip .tip-body::after {
+    content: ''; position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: #3a3a52;
+  }
 </style>
 </head>
 <body>
@@ -197,7 +232,7 @@
 
 <div class="controls-bar">
   <div class="ctrl-group">
-    <span class="ctrl-label">Token</span>
+    <span class="ctrl-label">Token <span class="info-tip">i<span class="tip-body">Select an input type to see how routing changes. Code tokens strongly activate the syntax expert; math tokens pivot to the math expert. The gating network learns these preferences from training data patterns.</span></span></span>
     <div class="token-chips" id="token-list">
       <button class="chip active" data-key="code">💻 Code</button>
       <button class="chip" data-key="math">∑ Math</button>
@@ -208,11 +243,11 @@
   </div>
   <div class="ctrl-divider"></div>
   <div class="ctrl-group">
-    <span class="ctrl-label">Top-K <span id="topk-display">2</span></span>
+    <span class="ctrl-label">Top-K <span id="topk-display">2</span> <span class="info-tip">i<span class="tip-body">How many experts activate per token. k=1 (Switch Transformer) is maximally efficient but can be unstable. k=2 (Mixtral) is the standard production choice — a good balance of compute savings and routing stability.</span></span></span>
     <input type="range" id="topk-range" min="1" max="5" value="2">
   </div>
   <div class="ctrl-group">
-    <span class="ctrl-label">Noise <span id="noise-display">0.0</span></span>
+    <span class="ctrl-label">Noise <span id="noise-display">0.0</span> <span class="info-tip">i<span class="tip-body">Adds Gaussian noise to gate logits before TopK selection. This "noisy top-k" trick (from Shazeer et al. 2017) encourages the gate to explore different experts during training, preventing it from locking onto the same favorites every step.</span></span></span>
     <input type="range" id="noise-range" min="0" max="1" step="0.05" value="0">
   </div>
 </div>
@@ -221,7 +256,7 @@
 
   <div class="flow-wrap">
     <div>
-      <div class="flow-col-title">Input</div>
+      <div class="flow-col-title">Input <span class="info-tip">i<span class="tip-body">The token's embedding vector — a dense numerical representation encoding its meaning and context. These same values are fed to both the gating network (to decide routing) and the active experts (to compute on).</span></span></div>
       <div class="token-node">
         <div class="tn-label">Token embedding</div>
         <div class="tn-value" id="tn-value">def sort(arr):</div>
@@ -236,7 +271,7 @@
     </div>
 
     <div>
-      <div class="flow-col-title">Gating network</div>
+      <div class="flow-col-title">Gating network <span class="info-tip">i<span class="tip-body">A single weight matrix W_g multiplied by the embedding produces one score (logit) per expert. TopK zeroes out all but the top k scores; softmax converts the survivors into probabilities that sum to 1. The entire gate adds negligible compute overhead.</span></span></div>
       <div class="gate-node">
         <div class="gn-name">Gate</div>
         <div class="gn-desc">Linear → TopK → Softmax</div>
@@ -253,13 +288,13 @@
     </div>
 
     <div>
-      <div class="flow-col-title">Experts</div>
+      <div class="flow-col-title">Experts <span class="info-tip">i<span class="tip-body">Only the top-k experts receive the token and run their feed-forward computation. The rest stay completely dormant — no matrix multiplications, no memory bandwidth used. Active experts run in parallel and their outputs are blended by the routing weights.</span></span></div>
       <div class="experts-col" id="experts-col"></div>
     </div>
   </div>
 
   <div class="logit-section">
-    <h3>Routing probabilities — raw logits vs. softmax weights</h3>
+    <h3>Routing probabilities — raw logits vs. softmax weights <span class="info-tip">i<span class="tip-body">Raw logits are the gate scores before normalization — higher = stronger routing preference. After TopK masking, softmax converts surviving logits to probabilities. Non-selected experts drop to exactly 0% because they're excluded before softmax, not merely down-weighted.</span></span></h3>
     <div class="logit-chart">
       <div class="logit-row">
         <div class="logit-header">Expert</div>
@@ -272,7 +307,7 @@
   </div>
 
   <div class="out-card">
-    <div class="oc-label">Output formula</div>
+    <div class="oc-label">Output formula <span class="info-tip">i<span class="tip-body">The final token representation is a weighted sum: each active expert's output vector multiplied by its routing probability, then summed. The result is a single vector with the same shape as the input, passed to the next transformer layer.</span></span></div>
     <div class="out-formula" id="out-formula">Output = w₁·E₁(x) + w₂·E₂(x)</div>
     <div style="margin-top:10px;font-size:11px;color:var(--muted)">Active experts: <span id="active-chips"></span></div>
   </div>

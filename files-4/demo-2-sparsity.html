@@ -209,6 +209,34 @@
   }
   .leg-item { display: flex; align-items: center; gap: 5px; }
   .leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* INFO TOOLTIPS */
+  .info-tip {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 1px solid #4a4860; color: #7a7890;
+    font-size: 9px; font-style: italic; font-family: Georgia, serif;
+    cursor: default; position: relative; flex-shrink: 0;
+    user-select: none; vertical-align: middle; margin-left: 5px; line-height: 1;
+  }
+  .info-tip:hover { border-color: var(--purple); color: var(--purple); }
+  .info-tip .tip-body {
+    visibility: hidden; opacity: 0;
+    position: absolute; left: 50%; bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    background: #1f1f28; border: 1px solid #3a3a52; border-radius: 8px;
+    padding: 10px 13px; font-size: 12px; font-style: normal;
+    font-family: -apple-system, 'Segoe UI', sans-serif; color: #e8e6f0;
+    white-space: normal; width: 240px; line-height: 1.6;
+    z-index: 200; box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    pointer-events: none; transition: opacity .15s;
+  }
+  .info-tip:hover .tip-body { visibility: visible; opacity: 1; }
+  .info-tip .tip-body::after {
+    content: ''; position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: #3a3a52;
+  }
 </style>
 </head>
 <body>
@@ -227,11 +255,11 @@
       <h2>Configuration</h2>
       <div class="control-group">
         <div class="ctrl-item">
-          <label>Total experts (N) <span class="val" id="n-val">64</span></label>
+          <label>Total experts (N) <span class="val" id="n-val">64</span> <span class="info-tip">i<span class="tip-body">The total number of expert FFNs in this layer. All N experts must be loaded into GPU memory, but only k fire per token. Real models range from 8 experts (Switch Transformer) to 256+.</span></span></label>
           <input type="range" id="n-range" min="8" max="256" step="8" value="64">
         </div>
         <div class="ctrl-item">
-          <label>Active per token (k) <span class="val" id="k-val">2</span></label>
+          <label>Active per token (k) <span class="val" id="k-val">2</span> <span class="info-tip">i<span class="tip-body">How many experts compute per token. This directly sets the per-token FLOPs — k expert FFNs run regardless of N. The ratio k/N is the activation rate; lower means more compute savings but less capacity used per token.</span></span></label>
           <input type="range" id="k-range" min="1" max="16" value="2">
         </div>
       </div>
@@ -247,14 +275,14 @@
     </div>
 
     <div class="card">
-      <h2>Live metrics</h2>
+      <h2>Live metrics <span class="info-tip">i<span class="tip-body">These four numbers capture the core MoE efficiency tradeoff. Activation rate and FLOPs saved scale with k/N. Capacity/compute ratio = N/k. Memory footprint stays fixed at N regardless of k.</span></span></h2>
       <div class="stats-grid" id="stats-grid"></div>
     </div>
   </div>
 
   <!-- EXPERT GRID -->
   <div class="grid-section">
-    <h2>Expert pool — active experts highlighted per token</h2>
+    <h2>Expert pool — active experts highlighted per token <span class="info-tip">i<span class="tip-body">Each cell is one expert. Purple = active for this token; grey = dormant. Every token independently routes to its own top-k subset — the grid updates with each step of the animation. Click any cell to identify it by index.</span></span></h2>
     <div class="grid-controls">
       <div style="font-size:12px;color:var(--muted)">Grid view:</div>
       <div class="grid-size-btns">
@@ -277,7 +305,7 @@
 
   <!-- TOKEN FLOW -->
   <div class="token-flow">
-    <h2>Token routing simulation — each token activates a fresh set of top-k experts</h2>
+    <h2>Token routing simulation <span class="info-tip">i<span class="tip-body">Each incoming token is independently routed to k experts by the gating network. Different tokens typically activate different experts — no single expert sees every token, which is why all-to-all communication is needed on real multi-GPU hardware.</span></span></h2>
     <div class="flow-container">
       <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Incoming tokens</div>
       <div class="token-stream" id="token-stream"></div>
@@ -289,7 +317,7 @@
 
   <!-- COMPARE -->
   <div class="compare-section">
-    <h2>Compute & memory comparison vs. equivalent dense model</h2>
+    <h2>Compute &amp; memory comparison vs. equivalent dense model <span class="info-tip">i<span class="tip-body">Compute (FLOPs) scales with k — only active experts run. Memory stays fixed at N — all experts must be loaded into VRAM. This asymmetry is the central MoE hardware constraint: you pay full memory cost to get partial compute cost.</span></span></h2>
     <div class="compare-bars" id="compare-bars"></div>
   </div>
 

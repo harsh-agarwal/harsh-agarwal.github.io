@@ -16,6 +16,16 @@ Mixture of Experts (MoE) breaks this constraint. Instead of one monolithic netwo
 
 > **The key insight:** You can have a model with 256 billion *total* parameters but only activate ~8 billion for any given token. You get the knowledge capacity of a huge model at the inference cost of a much smaller one.
 
+<style>
+.info-tip{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid #4a4860;color:#7a7890;font-size:9px;font-style:italic;font-family:Georgia,serif;cursor:default;position:relative;flex-shrink:0;user-select:none;vertical-align:middle;margin-left:5px;line-height:1;}
+.info-tip:hover{border-color:#9b8dff;color:#9b8dff;}
+.info-tip .tip-body{visibility:hidden;opacity:0;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);background:#1f1f28;border:1px solid #3a3a52;border-radius:8px;padding:10px 13px;font-size:12px;font-style:normal;font-family:-apple-system,'Segoe UI',sans-serif;color:#e8e6f0;white-space:normal;width:240px;line-height:1.6;z-index:200;box-shadow:0 6px 20px rgba(0,0,0,.5);pointer-events:none;transition:opacity .15s;}
+.info-tip:hover .tip-body{visibility:visible;opacity:1;}
+.info-tip .tip-body::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#3a3a52;}
+.diagram-tips{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;margin-top:10px;font-size:12px;color:#6b6880;}
+.diagram-tips span{display:flex;align-items:center;}
+</style>
+
 <figure style="margin: 2em 0;">
 <svg viewBox="0 0 920 390" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;font-family:-apple-system,'Segoe UI',sans-serif;background:#0f0f13;border-radius:12px;border:1px solid #2e2e3a;">
   <defs>
@@ -103,6 +113,12 @@ Mixture of Experts (MoE) breaks this constraint. Instead of one monolithic netwo
   <text x="460" y="372" text-anchor="middle" fill="#7a7a99" font-size="11">3 of 5 experts dormant — zero compute cost, full parameter capacity</text>
 </svg>
 <figcaption style="text-align:center;font-size:12px;color:#6b6880;margin-top:10px;">A single MoE layer forward pass. The gating network scores all experts but only the top-k=2 fire. Dormant experts incur zero compute while still contributing to total model capacity.</figcaption>
+<div class="diagram-tips">
+  <span>Token x <span class="info-tip">i<span class="tip-body">The input token's embedding vector — a dense numerical representation of its meaning. This same vector is fed to both the gating network (to decide which experts activate) and the active experts themselves (to compute on).</span></span></span>
+  <span>Gating Network <span class="info-tip">i<span class="tip-body">A single learned weight matrix W_g maps the token embedding to N scores (logits) — one per expert. TopK keeps only the k highest; softmax converts them to routing probabilities that sum to 1. The gate adds negligible compute overhead.</span></span></span>
+  <span>Active experts <span class="info-tip">i<span class="tip-body">Only the top-k experts (teal border) receive the token and run their full feed-forward computation. The routing weights (0.72, 0.28) show each expert's contribution to the final output. Dormant experts contribute exactly zero for this token.</span></span></span>
+  <span>Output y <span class="info-tip">i<span class="tip-body">A weighted sum of the active experts' output vectors: y = 0.72·E1(x) + 0.28·E4(x). Same shape as the input — the next transformer layer receives this as if it came from a single network, with no knowledge of the routing that produced it.</span></span></span>
+</div>
 </figure>
 
 ---
