@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo 2 — MoE Sparse Activation Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f0f13;
+    --surface:  #17171d;
+    --surface2: #1f1f28;
+    --border:   #2e2e3a;
+    --text:     #e8e6f0;
+    --muted:    #6b6880;
+    --purple:   #9b8dff;
+    --purple-d: #534AB7;
+    --teal:     #3ecfa4;
+    --coral:    #f07a54;
+    --amber:    #f5b942;
+    --blue:     #5ba8f5;
+    --mono:     'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .back-link { color: var(--muted); text-decoration: none; font-size: 13px; }
+  .back-link:hover { color: var(--text); }
+  .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+  header h1 { font-size: 16px; font-weight: 600; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+
+  .top-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--muted); }
+
+  /* CONTROLS */
+  .control-group { display: flex; flex-direction: column; gap: 16px; }
+  .ctrl-item label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted); margin-bottom: 8px;
+  }
+  .ctrl-item label .val { font-family: var(--mono); color: var(--purple); font-weight: 700; font-size: 14px; }
+  input[type=range] {
+    width: 100%; -webkit-appearance: none; height: 5px;
+    border-radius: 3px; background: var(--border); outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--purple); cursor: pointer;
+    box-shadow: 0 0 0 3px #1e1a3866;
+  }
+
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .preset-btn {
+    padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--muted); font-size: 12px;
+    cursor: pointer; transition: all .15s;
+  }
+  .preset-btn:hover, .preset-btn.active { background: #1e1a38; color: var(--purple); border-color: var(--purple-d); }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-box { background: var(--surface2); border-radius: 8px; padding: 12px 14px; }
+  .stat-box .s-val { font-family: var(--mono); font-size: 22px; font-weight: 700; }
+  .stat-box .s-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stat-box .s-note { font-size: 10px; color: var(--muted); margin-top: 6px; opacity: 0.7; line-height: 1.4; }
+
+  /* EXPERT GRID */
+  .grid-section { margin-bottom: 28px; }
+  .grid-section h2 { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 16px; }
+
+  .grid-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .grid-size-btns { display: flex; gap: 6px; }
+  .gs-btn {
+    padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--muted); font-size: 12px;
+    cursor: pointer; transition: all .15s;
+  }
+  .gs-btn.active { background: #1e1a38; color: var(--purple); border-color: var(--purple-d); }
+
+  .animate-btn {
+    padding: 5px 14px; border-radius: 6px; border: 1px solid var(--teal)55;
+    background: #0e2420; color: var(--teal); font-size: 12px; font-weight: 600;
+    cursor: pointer; margin-left: auto;
+  }
+  .animate-btn.running { background: #2a0e14; color: var(--coral); border-color: var(--coral)55; }
+
+  .expert-grid-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .expert-grid {
+    display: grid;
+    gap: 4px;
+  }
+  .exp-cell {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all .2s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-family: var(--mono);
+    color: transparent;
+    border: 1px solid transparent;
+  }
+  .exp-cell.off { background: var(--surface2); border-color: var(--border); }
+  .exp-cell.on  { background: var(--purple-d); border-color: var(--purple); color: white; }
+  .exp-cell.on:hover { background: var(--purple); transform: scale(1.1); }
+  .exp-cell.off:hover { background: #2a2535; }
+  .exp-cell.flash { animation: flash .25s ease; }
+  @keyframes flash { 0%{transform:scale(1.2);background:#9b8dff} 100%{transform:scale(1)} }
+
+  /* TOKEN FLOW */
+  .token-flow { margin-bottom: 28px; }
+  .token-flow h2 { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 16px; }
+
+  .flow-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .token-stream {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 10px;
+    background: var(--surface2);
+    border-radius: 8px;
+    min-height: 44px;
+  }
+  .tok-pill {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    transition: all .2s;
+  }
+  .tok-pill.routing { background: #1e1a38; color: var(--purple); border-color: var(--purple-d); transform: translateY(-2px); }
+
+  .routing-display {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .rd-arrow { color: var(--muted); font-size: 12px; }
+  .rd-chip {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+
+  /* COMPARE SECTION */
+  .compare-section h2 { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 16px; }
+
+  .compare-bars { display: flex; flex-direction: column; gap: 10px; }
+  .cmp-row { display: grid; grid-template-columns: 140px 1fr 80px; gap: 12px; align-items: center; }
+  .cmp-label { font-size: 12px; }
+  .cmp-bar-bg { height: 10px; border-radius: 5px; background: var(--surface2); overflow: visible; position: relative; }
+  .cmp-bar-fill { height: 100%; border-radius: 5px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+  .cmp-val { font-family: var(--mono); font-size: 12px; font-weight: 700; text-align: right; }
+
+  .legend {
+    display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--muted);
+  }
+  .leg-item { display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-link" href="/mixture-of-experts/">← Back to blog</a>
+  <span class="badge">Demo 2 / 3</span>
+  <h1>Sparse Activation Explorer</h1>
+</header>
+
+<div class="container">
+
+  <!-- TOP ROW -->
+  <div class="top-grid">
+    <div class="card">
+      <h2>Configuration</h2>
+      <div class="control-group">
+        <div class="ctrl-item">
+          <label>Total experts (N) <span class="val" id="n-val">64</span></label>
+          <input type="range" id="n-range" min="8" max="256" step="8" value="64">
+        </div>
+        <div class="ctrl-item">
+          <label>Active per token (k) <span class="val" id="k-val">2</span></label>
+          <input type="range" id="k-range" min="1" max="16" value="2">
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Quick presets</div>
+        <div class="presets">
+          <button class="preset-btn" onclick="setPreset(8,1)">Switch-T<br><span style="font-size:10px">8 exp, top-1</span></button>
+          <button class="preset-btn active" onclick="setPreset(64,2)">Mixtral<br><span style="font-size:10px">64 exp, top-2</span></button>
+          <button class="preset-btn" onclick="setPreset(160,6)">Gemini MoE<br><span style="font-size:10px">160 exp, top-6</span></button>
+          <button class="preset-btn" onclick="setPreset(256,8)">Large MoE<br><span style="font-size:10px">256 exp, top-8</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Live metrics</h2>
+      <div class="stats-grid" id="stats-grid"></div>
+    </div>
+  </div>
+
+  <!-- EXPERT GRID -->
+  <div class="grid-section">
+    <h2>Expert pool — active experts highlighted per token</h2>
+    <div class="grid-controls">
+      <div style="font-size:12px;color:var(--muted)">Grid view:</div>
+      <div class="grid-size-btns">
+        <button class="gs-btn active" onclick="setGridMode('all')" id="gm-all">All experts</button>
+        <button class="gs-btn" onclick="setGridMode('sample')" id="gm-sample">Sample (64)</button>
+      </div>
+      <button class="animate-btn" id="anim-btn" onclick="toggleAnimate()">▶ Animate token stream</button>
+    </div>
+    <div class="expert-grid-wrap">
+      <div class="expert-grid" id="expert-grid"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+        <div style="font-size:11px;color:var(--muted)" id="grid-caption">Click any cell to see its index</div>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-dot" style="background:var(--purple-d)"></div>Active</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--surface2);border:1px solid var(--border)"></div>Idle</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOKEN FLOW -->
+  <div class="token-flow">
+    <h2>Token routing simulation — each token activates a fresh set of top-k experts</h2>
+    <div class="flow-container">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Incoming tokens</div>
+      <div class="token-stream" id="token-stream"></div>
+      <div class="routing-display" id="routing-display">
+        <span style="font-size:12px;color:var(--muted)">Click "Animate token stream" to route tokens</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE -->
+  <div class="compare-section">
+    <h2>Compute & memory comparison vs. equivalent dense model</h2>
+    <div class="compare-bars" id="compare-bars"></div>
+  </div>
+
+</div>
+
+<script>
+let N = 64, K = 2, gridMode = 'all', animating = false, animInterval = null;
+
+const SAMPLE_TOKENS = ['the','cat','sat','on','def','sort','∫f(x)','dx','Bonjour','If','then','Paris','neural','network','token','weight'];
+
+function clamp(v,min,max){return Math.min(max,Math.max(min,v));}
+
+function pickRandom(n, k) {
+  const idx = Array.from({length:n},(_,i)=>i);
+  for(let i=n-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+  return new Set(idx.slice(0,k));
+}
+
+function getGridSize(n) {
+  const cols = Math.ceil(Math.sqrt(n));
+  return cols;
+}
+
+function buildGrid() {
+  const grid = document.getElementById('expert-grid');
+  const cap = gridMode === 'sample' ? Math.min(N, 64) : N;
+  const cols = getGridSize(cap);
+  const cellSize = Math.min(36, Math.floor((880) / cols) - 4);
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+  grid.innerHTML = '';
+  for(let i=0;i<cap;i++){
+    const cell = document.createElement('div');
+    cell.className = 'exp-cell off';
+    cell.dataset.idx = i;
+    cell.onclick = () => {
+      document.getElementById('grid-caption').textContent = `Expert #${i} — ${cell.classList.contains('on') ? 'ACTIVE this token' : 'idle this token'}`;
+    };
+    grid.appendChild(cell);
+  }
+}
+
+function activateRandom() {
+  const cap = gridMode === 'sample' ? Math.min(N, 64) : N;
+  const k = Math.min(K, cap);
+  const active = pickRandom(cap, k);
+  document.querySelectorAll('.exp-cell').forEach((c,i) => {
+    const wasOn = c.classList.contains('on');
+    const isOn = active.has(i);
+    c.classList.toggle('on', isOn);
+    c.classList.toggle('off', !isOn);
+    if(isOn && !wasOn) {
+      c.classList.add('flash');
+      setTimeout(()=>c.classList.remove('flash'), 300);
+    }
+  });
+  return active;
+}
+
+function updateStats() {
+  const pct = (K/N*100);
+  const saved = 100 - pct;
+  const ratio = (N/K).toFixed(1);
+  const flops_dense = N * 100; // arbitrary units
+  const flops_moe = K * 100;
+  const params_active = K;
+
+  const sg = document.getElementById('stats-grid');
+  sg.innerHTML = `
+    <div class="stat-box">
+      <div class="s-val" style="color:var(--purple)">${K} / ${N}</div>
+      <div class="s-lbl">Active / total experts</div>
+      <div class="s-note">Only ${K} expert FFNs run per token</div>
+    </div>
+    <div class="stat-box">
+      <div class="s-val" style="color:var(--teal)">${pct.toFixed(1)}%</div>
+      <div class="s-lbl">Expert activation rate</div>
+      <div class="s-note">${saved.toFixed(1)}% of experts idle per token</div>
+    </div>
+    <div class="stat-box">
+      <div class="s-val" style="color:var(--amber)">${ratio}×</div>
+      <div class="s-lbl">Capacity / compute ratio</div>
+      <div class="s-note">Model knows ${ratio}× more than it computes</div>
+    </div>
+    <div class="stat-box">
+      <div class="s-val" style="color:var(--coral)">${saved.toFixed(0)}%</div>
+      <div class="s-lbl">Expert FLOPs saved</div>
+      <div class="s-note">vs. activating all ${N} experts</div>
+    </div>
+  `;
+
+  // Compare bars
+  const cb = document.getElementById('compare-bars');
+  const items = [
+    { label:'Compute (FLOPs)', dense:100, moe: K/N*100, unit:'%' },
+    { label:'Expert memory needed', dense:100, moe:100, unit:'%', note:'All experts must be loaded' },
+    { label:'Knowledge capacity', dense: K/N*100, moe:100, unit:'%', note:'MoE has full capacity from all experts' },
+    { label:'Throughput gain', dense:100, moe: Math.min(100, N/K*100), unit:'%', note:'Potential tokens/sec improvement' },
+  ];
+  cb.innerHTML = items.map(item => `
+    <div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:12px">${item.label}</span>
+        ${item.note ? `<span style="font-size:10px;color:var(--muted)">${item.note}</span>` : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:4px">
+        <div style="display:grid;grid-template-columns:55px 1fr 60px;gap:8px;align-items:center">
+          <span style="font-size:11px;color:var(--muted)">Dense</span>
+          <div class="cmp-bar-bg"><div class="cmp-bar-fill" style="width:${item.dense}%;background:var(--border)"></div></div>
+          <span class="cmp-val" style="color:var(--muted)">${item.dense.toFixed(0)}%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:55px 1fr 60px;gap:8px;align-items:center">
+          <span style="font-size:11px;color:var(--purple)">MoE</span>
+          <div class="cmp-bar-bg"><div class="cmp-bar-fill" style="width:${Math.min(item.moe,100)}%;background:var(--purple-d)"></div></div>
+          <span class="cmp-val" style="color:var(--purple)">${Math.min(item.moe,100).toFixed(0)}%</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildTokenStream() {
+  const stream = document.getElementById('token-stream');
+  stream.innerHTML = SAMPLE_TOKENS.map((t,i) =>
+    `<div class="tok-pill" id="tp-${i}">${t}</div>`
+  ).join('');
+}
+
+let tokenIdx = 0;
+function stepToken() {
+  document.querySelectorAll('.tok-pill').forEach(p=>p.classList.remove('routing'));
+  const pill = document.getElementById('tp-'+tokenIdx);
+  if(pill) pill.classList.add('routing');
+
+  const active = activateRandom();
+  const activeArr = [...active].slice(0,K);
+  const colors = ['var(--purple)','var(--teal)','var(--amber)','var(--coral)','var(--blue)'];
+
+  const rd = document.getElementById('routing-display');
+  rd.innerHTML = `
+    <span style="font-size:12px;color:var(--muted)">${SAMPLE_TOKENS[tokenIdx]}</span>
+    <span class="rd-arrow">→ gating →</span>
+    ${activeArr.map((idx,j)=>`<span class="rd-chip" style="background:${colors[j%colors.length]}22;color:${colors[j%colors.length]};border:1px solid ${colors[j%colors.length]}44">Expert #${idx} (${((K===1?100:j===0?72:28)/1).toFixed(0)}%)</span>`).join('<span class="rd-arrow">+</span>')}
+  `;
+  tokenIdx = (tokenIdx+1) % SAMPLE_TOKENS.length;
+}
+
+function toggleAnimate() {
+  animating = !animating;
+  const btn = document.getElementById('anim-btn');
+  if(animating) {
+    btn.textContent = '⏹ Stop animation';
+    btn.classList.add('running');
+    animInterval = setInterval(stepToken, 700);
+    stepToken();
+  } else {
+    btn.textContent = '▶ Animate token stream';
+    btn.classList.remove('running');
+    clearInterval(animInterval);
+    document.querySelectorAll('.tok-pill').forEach(p=>p.classList.remove('routing'));
+    document.querySelectorAll('.exp-cell').forEach(c=>{c.classList.remove('on');c.classList.add('off');});
+  }
+}
+
+function setPreset(n, k) {
+  N = n; K = Math.min(k, n);
+  document.getElementById('n-range').value = N;
+  document.getElementById('k-range').value = K;
+  document.getElementById('n-range').max = Math.max(256, N);
+  document.getElementById('k-range').max = Math.min(16, N);
+  document.getElementById('n-val').textContent = N;
+  document.getElementById('k-val').textContent = K;
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  event.target.closest('.preset-btn').classList.add('active');
+  rebuildAll();
+}
+
+function setGridMode(mode) {
+  gridMode = mode;
+  document.getElementById('gm-all').classList.toggle('active', mode==='all');
+  document.getElementById('gm-sample').classList.toggle('active', mode==='sample');
+  rebuildAll();
+}
+
+function rebuildAll() {
+  buildGrid();
+  updateStats();
+}
+
+document.getElementById('n-range').addEventListener('input', function() {
+  N = parseInt(this.value);
+  K = Math.min(K, N);
+  document.getElementById('k-range').max = Math.min(16, N);
+  document.getElementById('k-range').value = K;
+  document.getElementById('n-val').textContent = N;
+  document.getElementById('k-val').textContent = K;
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  rebuildAll();
+});
+
+document.getElementById('k-range').addEventListener('input', function() {
+  K = parseInt(this.value);
+  document.getElementById('k-val').textContent = K;
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  updateStats();
+});
+
+buildTokenStream();
+buildGrid();
+updateStats();
+</script>
+</body>
+</html>

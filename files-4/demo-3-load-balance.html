@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo 3 — MoE Load Balancing Simulator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f0f13;
+    --surface:  #17171d;
+    --surface2: #1f1f28;
+    --border:   #2e2e3a;
+    --text:     #e8e6f0;
+    --muted:    #6b6880;
+    --purple:   #9b8dff;
+    --purple-d: #534AB7;
+    --teal:     #3ecfa4;
+    --coral:    #f07a54;
+    --amber:    #f5b942;
+    --blue:     #5ba8f5;
+    --red:      #f06060;
+    --green:    #6fcf7e;
+    --mono:     'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  header { border-bottom: 1px solid var(--border); padding: 18px 32px; display: flex; align-items: center; gap: 14px; }
+  .back-link { color: var(--muted); text-decoration: none; font-size: 13px; }
+  .back-link:hover { color: var(--text); }
+  .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+  header h1 { font-size: 16px; font-weight: 600; }
+
+  .container { max-width: 1040px; margin: 0 auto; padding: 28px 24px; }
+
+  .main-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; margin-bottom: 24px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 14px; }
+
+  /* CONTROLS */
+  .ctrl-section { display: flex; flex-direction: column; gap: 14px; }
+  .ctrl-row label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 7px; }
+  .ctrl-row label .val { font-family: var(--mono); color: var(--purple); font-weight: 700; }
+  input[type=range] { width: 100%; -webkit-appearance: none; height: 4px; border-radius: 2px; background: var(--border); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--purple); cursor: pointer; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--border); }
+  .toggle-label { font-size: 13px; font-weight: 600; }
+  .toggle-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .toggle-switch {
+    width: 44px; height: 24px; border-radius: 12px; background: var(--border);
+    cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0;
+  }
+  .toggle-switch.on { background: var(--teal); }
+  .toggle-thumb {
+    width: 18px; height: 18px; border-radius: 50%; background: white;
+    position: absolute; top: 3px; left: 3px; transition: left .2s;
+  }
+  .toggle-switch.on .toggle-thumb { left: 23px; }
+
+  .run-btn {
+    width: 100%; padding: 10px; border-radius: 8px;
+    border: 1px solid var(--purple-d); background: #1e1a38;
+    color: var(--purple); font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all .15s; margin-top: 4px;
+  }
+  .run-btn:hover { background: #2a2448; }
+  .run-btn.running { background: #2a0e14; color: var(--coral); border-color: var(--coral)55; }
+
+  .reset-btn {
+    width: 100%; padding: 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--muted); font-size: 12px; cursor: pointer; transition: all .15s; margin-top: 6px;
+  }
+  .reset-btn:hover { color: var(--text); border-color: #444; }
+
+  /* CHART PANEL */
+  .chart-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .step-counter { display: flex; gap: 16px; align-items: center; }
+  .step-pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+  .step-pill .sp-val { font-family: var(--mono); font-size: 18px; font-weight: 700; }
+  .step-pill .sp-lbl { font-size: 11px; color: var(--muted); }
+  .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+
+  /* BAR CHART */
+  .bar-chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .bar-chart-title { font-size: 12px; color: var(--muted); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .bar-chart { display: flex; gap: 6px; align-items: flex-end; height: 160px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+  .bar-wrap { flex: 1; display: flex; align-items: flex-end; width: 100%; }
+  .bar-fill {
+    width: 100%; border-radius: 4px 4px 0 0;
+    transition: height .4s cubic-bezier(.4,0,.2,1), background .4s;
+    min-height: 2px;
+  }
+  .bar-lbl { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+  .bar-pct { font-size: 10px; font-family: var(--mono); font-weight: 700; transition: color .3s; }
+  .ideal-line {
+    position: relative;
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  .ideal-line::after {
+    content: 'ideal';
+    position: absolute;
+    right: 0; top: -8px;
+    font-size: 10px; color: var(--muted);
+  }
+
+  /* LINE CHART (loss history) */
+  .loss-chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .loss-chart-title { font-size: 12px; color: var(--muted); margin-bottom: 12px; display: flex; justify-content: space-between; }
+  #loss-canvas { width: 100%; height: 120px; display: block; }
+
+  /* EXPERT REPORT */
+  .expert-report { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .er-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    transition: border-color .3s;
+  }
+  .er-card .er-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .er-card .er-tokens { font-family: var(--mono); font-size: 16px; font-weight: 700; }
+  .er-card .er-bar { height: 3px; border-radius: 2px; margin-top: 6px; transition: width .4s, background .3s; }
+  .er-card .er-quality { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* EXPLANATION */
+  .explanation {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .expl-section h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  .expl-section p { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .formula-box {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--purple);
+    margin-top: 8px;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-link" href="/mixture-of-experts/">← Back to blog</a>
+  <span class="badge">Demo 3 / 3</span>
+  <h1>Load Balancing Simulator</h1>
+</header>
+
+<div class="container">
+  <div class="main-grid">
+
+    <!-- CONTROLS -->
+    <div class="card">
+      <div class="card-title">Training config</div>
+      <div class="ctrl-section">
+
+        <div class="ctrl-row">
+          <label>Number of experts <span class="val" id="ne-val">8</span></label>
+          <input type="range" id="ne-range" min="4" max="16" step="1" value="8">
+        </div>
+
+        <div class="ctrl-row">
+          <label>Top-K routing <span class="val" id="nk-val">2</span></label>
+          <input type="range" id="nk-range" min="1" max="4" value="2">
+        </div>
+
+        <div class="ctrl-row">
+          <label>Tokens per step <span class="val" id="tps-val">32</span></label>
+          <input type="range" id="tps-range" min="8" max="128" step="8" value="32">
+        </div>
+
+        <div class="ctrl-row">
+          <label>Bias (expert 0 preference) <span class="val" id="bias-val">2.0</span></label>
+          <input type="range" id="bias-range" min="0" max="5" step="0.1" value="2.0">
+        </div>
+
+        <div class="ctrl-row">
+          <label>Aux loss α <span class="val" id="alpha-val">0.01</span></label>
+          <input type="range" id="alpha-range" min="0" max="0.2" step="0.005" value="0.01">
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Aux loss enabled</div>
+            <div class="toggle-sub">Load-balancing penalty</div>
+          </div>
+          <div class="toggle-switch on" id="aux-toggle" onclick="toggleAux()">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+
+        <div class="toggle-row" style="border-top: none; padding-top:0">
+          <div>
+            <div class="toggle-label">Noisy gating</div>
+            <div class="toggle-sub">Gaussian noise for exploration</div>
+          </div>
+          <div class="toggle-switch" id="noise-toggle" onclick="toggleNoise()">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+
+        <button class="run-btn" id="run-btn" onclick="toggleRun()">▶ Start training</button>
+        <button class="reset-btn" onclick="resetSim()">↺ Reset</button>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="chart-panel">
+      <!-- Step counter + status -->
+      <div class="step-counter">
+        <div class="step-pill">
+          <div class="sp-val" id="step-display">0</div>
+          <div class="sp-lbl">Training steps</div>
+        </div>
+        <div class="step-pill">
+          <div class="sp-val" id="tokens-display">0</div>
+          <div class="sp-lbl">Tokens routed</div>
+        </div>
+        <div class="step-pill">
+          <div class="sp-val" id="aux-loss-display">—</div>
+          <div class="sp-lbl">Aux loss</div>
+        </div>
+        <div class="status-badge" id="status-badge" style="background:#2a0e14;color:var(--coral)">Collapsed</div>
+      </div>
+
+      <!-- Bar chart: token distribution -->
+      <div class="bar-chart-wrap">
+        <div class="bar-chart-title">
+          <span>Token routing distribution per expert</span>
+          <span id="balance-score" style="font-family:var(--mono);color:var(--muted)">Balance score: —</span>
+        </div>
+        <div class="bar-chart" id="bar-chart"></div>
+      </div>
+
+      <!-- Loss history canvas -->
+      <div class="loss-chart-wrap">
+        <div class="loss-chart-title">
+          <span>Load imbalance over training steps</span>
+          <span id="loss-legend" style="font-size:11px"></span>
+        </div>
+        <canvas id="loss-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expert report -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">Expert quality report — training effectiveness per expert</div>
+    <div class="expert-report" id="expert-report"></div>
+  </div>
+
+  <!-- Explanation -->
+  <div class="explanation">
+    <div class="expl-section">
+      <h3>Why expert collapse happens</h3>
+      <p>Early in training, random weight initialization causes some experts to produce slightly better outputs than others. The gating network, following gradient descent, learns to route <em>more</em> tokens to those experts. More tokens → more gradient signal → those experts improve further. It's a self-reinforcing cycle that quickly leads to collapse.</p>
+      <p style="margin-top:8px">Without intervention, a model with 64 experts might end up with 2–3 experts handling 90%+ of all tokens.</p>
+    </div>
+    <div class="expl-section">
+      <h3>The auxiliary loss fix</h3>
+      <p>The load-balancing auxiliary loss adds a penalty term proportional to the product of how often each expert is selected (frequency) and the average routing probability it receives. High correlation between these two quantities — i.e., popular experts getting even higher probabilities — incurs a large penalty.</p>
+      <div class="formula-box">
+        L_aux = α × N × Σᵢ fᵢ × pᵢ<br>
+        <span style="color:var(--muted);font-size:11px">fᵢ = fraction of tokens routed to i<br>pᵢ = mean routing prob for i<br>α = balance coefficient (try 0.01)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let N_EXP = 8, TOP_K = 2, TPS = 32, BIAS = 2.0, ALPHA = 0.01;
+let auxEnabled = true, noisyGating = false;
+let running = false, runInterval = null;
+let step = 0, totalTokens = 0;
+
+// Per-expert state
+let expertCounts = [];
+let expertStrength = []; // simulated "quality" that biases routing
+let imbalanceHistory = [];
+let auxLossHistory = [];
+
+function initSim() {
+  expertCounts = Array(N_EXP).fill(0);
+  expertStrength = Array.from({length: N_EXP}, (_,i) => i === 0 ? BIAS : 0);
+  imbalanceHistory = [];
+  auxLossHistory = [];
+  step = 0; totalTokens = 0;
+  renderAll();
+}
+
+function simulateStep() {
+  step++;
+  totalTokens += TPS;
+
+  // Routing: each token independently picks top-k based on softmax(strength + noise)
+  const stepCounts = Array(N_EXP).fill(0);
+
+  for(let t = 0; t < TPS; t++) {
+    const logits = expertStrength.map((s,i) => {
+      const noise = noisyGating ? (Math.random()*2-1)*0.5 : 0;
+      return s + noise;
+    });
+
+    // softmax
+    const maxL = Math.max(...logits);
+    const exps = logits.map(l => Math.exp(l - maxL));
+    const sum = exps.reduce((a,b)=>a+b,0);
+    const probs = exps.map(e => e/sum);
+
+    // TopK selection
+    const sorted = probs.map((p,i)=>({p,i})).sort((a,b)=>b.p-a.p);
+    sorted.slice(0, TOP_K).forEach(({i}) => stepCounts[i]++);
+  }
+
+  // Update global counts
+  stepCounts.forEach((c,i) => expertCounts[i] += c);
+
+  // Compute aux loss: L = alpha * N * sum(f_i * p_i)
+  const totalRouted = stepCounts.reduce((a,b)=>a+b,0);
+  const f = stepCounts.map(c => c / totalRouted);
+  const logits2 = expertStrength.map(s => s);
+  const maxL2 = Math.max(...logits2);
+  const exps2 = logits2.map(l => Math.exp(l - maxL2));
+  const sum2 = exps2.reduce((a,b)=>a+b,0);
+  const p_bar = exps2.map(e => e/sum2);
+  const auxLoss = ALPHA * N_EXP * f.reduce((acc,fi,i) => acc + fi*p_bar[i], 0);
+  auxLossHistory.push(auxLoss);
+
+  // Imbalance: std dev of routing fraction (ideal = 1/N)
+  const ideal = TOP_K / N_EXP;
+  const variance = f.reduce((acc,fi) => acc + Math.pow(fi - ideal, 2), 0) / N_EXP;
+  const imbalance = Math.sqrt(variance) / ideal; // coefficient of variation
+  imbalanceHistory.push(imbalance);
+
+  // Update expert strength via simulated "gradient" — popular experts get stronger
+  // unless aux loss is fighting it
+  expertStrength = expertStrength.map((s,i) => {
+    const routing_share = f[i];
+    const ideal_share = 1 / N_EXP;
+    // Without aux loss: overloaded experts gain strength
+    const gradient = (routing_share - ideal_share) * 0.3;
+    // Aux loss correction: penalizes high-routing experts
+    const aux_correction = auxEnabled ? -ALPHA * 20 * routing_share : 0;
+    return s + gradient + aux_correction;
+  });
+
+  renderAll();
+}
+
+function getBalanceScore() {
+  if(expertCounts.every(c=>c===0)) return null;
+  const total = expertCounts.reduce((a,b)=>a+b,0);
+  const fracs = expertCounts.map(c=>c/total);
+  const ideal = 1/N_EXP;
+  const cv = Math.sqrt(fracs.reduce((a,f)=>a+Math.pow(f-ideal,2),0)/N_EXP) / ideal;
+  return Math.max(0, 100 - cv*100);
+}
+
+function renderBars() {
+  const bc = document.getElementById('bar-chart');
+  bc.innerHTML = '';
+  const total = expertCounts.reduce((a,b)=>a+b,0);
+  const fracs = total > 0 ? expertCounts.map(c=>c/total) : expertCounts.map(()=>1/N_EXP);
+  const ideal = 1/N_EXP;
+  const maxFrac = Math.max(...fracs, ideal*2);
+
+  fracs.forEach((f, i) => {
+    const overloaded = f > ideal * 1.5;
+    const underloaded = f < ideal * 0.5;
+    const color = overloaded ? 'var(--coral)' : underloaded ? 'var(--muted)' : 'var(--teal)';
+    const heightPct = (f / maxFrac * 100).toFixed(1);
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.innerHTML = `
+      <div class="bar-pct" style="color:${color}">${(f*100).toFixed(0)}%</div>
+      <div class="bar-wrap">
+        <div class="bar-fill" style="height:${heightPct}%;background:${color}"></div>
+      </div>
+      <div class="bar-lbl">E${i+1}</div>
+    `;
+    bc.appendChild(col);
+  });
+}
+
+function renderLossCanvas() {
+  const canvas = document.getElementById('loss-canvas');
+  const W = canvas.offsetWidth || 600;
+  const H = 120;
+  canvas.width = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  canvas.style.width = W+'px';
+  canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  ctx.clearRect(0,0,W,H);
+
+  if(imbalanceHistory.length < 2) {
+    ctx.fillStyle = '#3e3d4a';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Start training to see imbalance over time', W/2, H/2);
+    return;
+  }
+
+  const maxVal = Math.max(...imbalanceHistory, 0.5);
+  const pad = {l:30, r:16, t:12, b:20};
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  // Grid
+  ctx.strokeStyle = '#2e2e3a';
+  ctx.lineWidth = 0.5;
+  [0, 0.25, 0.5, 0.75, 1].forEach(frac => {
+    const y = pad.t + (1-frac)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#6b6880';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText((frac*maxVal).toFixed(1), pad.l-4, y+3);
+  });
+
+  // Ideal line (y=0)
+  const y0 = pad.t + ch;
+  ctx.strokeStyle = '#3ecfa466';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(pad.l, y0); ctx.lineTo(W-pad.r, y0); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Imbalance line
+  const pts = imbalanceHistory.map((v,i) => ({
+    x: pad.l + (i/(Math.max(imbalanceHistory.length-1,1)))*cw,
+    y: pad.t + (1 - v/maxVal)*ch
+  }));
+
+  // Fill area
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, y0);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, y0);
+  ctx.closePath();
+  ctx.fillStyle = auxEnabled ? '#3ecfa415' : '#f0606015';
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = auxEnabled ? 'var(--teal)' : 'var(--coral)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Legend
+  const ll = document.getElementById('loss-legend');
+  const lastImb = imbalanceHistory[imbalanceHistory.length-1];
+  ll.innerHTML = `<span style="color:${auxEnabled?'var(--teal)':'var(--coral)'}">
+    Current imbalance: ${lastImb.toFixed(3)} ${lastImb < 0.1 ? '✓ healthy' : lastImb < 0.3 ? '⚠ moderate' : '✗ collapsed'}
+  </span>`;
+}
+
+function renderExpertReport() {
+  const er = document.getElementById('expert-report');
+  er.innerHTML = '';
+  const total = expertCounts.reduce((a,b)=>a+b,0);
+  const maxCount = Math.max(...expertCounts, 1);
+  const ideal = total / N_EXP;
+
+  expertCounts.forEach((cnt, i) => {
+    const frac = total > 0 ? cnt/total : 0;
+    const idealFrac = 1/N_EXP;
+    const ratio = idealFrac > 0 ? frac/idealFrac : 1;
+    const overloaded = ratio > 1.4;
+    const underloaded = ratio < 0.6;
+    const color = overloaded ? 'var(--coral)' : underloaded ? 'var(--muted)' : 'var(--teal)';
+    const quality = Math.min(100, Math.max(0, cnt / Math.max(ideal, 1) * 100));
+    const qualLabel = overloaded ? 'overtrained' : underloaded ? 'undertrained' : 'healthy';
+    const card = document.createElement('div');
+    card.className = 'er-card';
+    card.style.borderColor = overloaded ? 'var(--coral)44' : underloaded ? 'transparent' : 'var(--teal)44';
+    card.innerHTML = `
+      <div class="er-name" style="color:${color}">Expert ${i+1}</div>
+      <div class="er-tokens" style="color:${color}">${cnt.toLocaleString()}</div>
+      <div class="er-bar" style="width:${Math.min(100,frac/idealFrac*100*0.5)}%;background:${color}"></div>
+      <div class="er-quality">${(frac*100).toFixed(1)}% share · ${qualLabel}</div>
+    `;
+    er.appendChild(card);
+  });
+}
+
+function renderStatus() {
+  const score = getBalanceScore();
+  const badge = document.getElementById('status-badge');
+  const imb = imbalanceHistory[imbalanceHistory.length-1] ?? 0;
+
+  if(score === null) {
+    badge.style.background = '#1f1f28';
+    badge.style.color = 'var(--muted)';
+    badge.textContent = 'Not started';
+  } else if(imb < 0.12) {
+    badge.style.background = '#0e2420';
+    badge.style.color = 'var(--teal)';
+    badge.textContent = '✓ Balanced';
+  } else if(imb < 0.3) {
+    badge.style.background = '#2a200e';
+    badge.style.color = 'var(--amber)';
+    badge.textContent = '⚠ Uneven';
+  } else {
+    badge.style.background = '#2a0e14';
+    badge.style.color = 'var(--coral)';
+    badge.textContent = '✗ Collapsed';
+  }
+
+  document.getElementById('step-display').textContent = step.toLocaleString();
+  document.getElementById('tokens-display').textContent = totalTokens.toLocaleString();
+  const lastAux = auxLossHistory[auxLossHistory.length-1];
+  document.getElementById('aux-loss-display').textContent = lastAux !== undefined ? lastAux.toFixed(4) : '—';
+
+  const bs = getBalanceScore();
+  document.getElementById('balance-score').textContent = bs !== null ? `Balance score: ${bs.toFixed(0)}/100` : 'Balance score: —';
+}
+
+function renderAll() {
+  renderBars();
+  renderLossCanvas();
+  renderExpertReport();
+  renderStatus();
+}
+
+function toggleRun() {
+  running = !running;
+  const btn = document.getElementById('run-btn');
+  if(running) {
+    btn.textContent = '⏹ Pause training';
+    btn.classList.add('running');
+    runInterval = setInterval(simulateStep, 120);
+  } else {
+    btn.textContent = '▶ Continue training';
+    btn.classList.remove('running');
+    clearInterval(runInterval);
+  }
+}
+
+function resetSim() {
+  running = false;
+  clearInterval(runInterval);
+  const btn = document.getElementById('run-btn');
+  btn.textContent = '▶ Start training';
+  btn.classList.remove('running');
+  expertStrength = Array.from({length: N_EXP}, (_,i) => i === 0 ? BIAS : 0);
+  initSim();
+}
+
+function toggleAux() {
+  auxEnabled = !auxEnabled;
+  document.getElementById('aux-toggle').classList.toggle('on', auxEnabled);
+}
+function toggleNoise() {
+  noisyGating = !noisyGating;
+  document.getElementById('noise-toggle').classList.toggle('on', noisyGating);
+}
+
+// Sliders
+document.getElementById('ne-range').addEventListener('input', function() {
+  N_EXP = parseInt(this.value);
+  document.getElementById('ne-val').textContent = N_EXP;
+  TOP_K = Math.min(TOP_K, N_EXP);
+  document.getElementById('nk-range').max = Math.min(4, N_EXP);
+  document.getElementById('nk-range').value = TOP_K;
+  document.getElementById('nk-val').textContent = TOP_K;
+  resetSim();
+});
+document.getElementById('nk-range').addEventListener('input', function() {
+  TOP_K = parseInt(this.value);
+  document.getElementById('nk-val').textContent = TOP_K;
+});
+document.getElementById('tps-range').addEventListener('input', function() {
+  TPS = parseInt(this.value);
+  document.getElementById('tps-val').textContent = TPS;
+});
+document.getElementById('bias-range').addEventListener('input', function() {
+  BIAS = parseFloat(this.value);
+  document.getElementById('bias-val').textContent = BIAS.toFixed(1);
+  expertStrength[0] = BIAS;
+});
+document.getElementById('alpha-range').addEventListener('input', function() {
+  ALPHA = parseFloat(this.value);
+  document.getElementById('alpha-val').textContent = ALPHA.toFixed(3);
+});
+
+initSim();
+</script>
+</body>
+</html>
