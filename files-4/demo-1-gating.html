@@ -62,14 +62,12 @@
     display: grid;
     grid-template-columns: 300px 1fr;
     gap: 0;
-    height: calc(100vh - 61px);
   }
 
   /* LEFT PANEL */
   .left-panel {
     border-right: 1px solid var(--border);
     padding: 24px 20px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -141,7 +139,6 @@
   /* MAIN PANEL */
   .main-panel {
     padding: 28px 32px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 24px;
@@ -644,6 +641,15 @@ document.getElementById('noise-range').addEventListener('input', function() {
 setInterval(() => { if(noise > 0) render(); }, 600);
 
 render();
+</script>
+<script>
+(function(){
+  function report(){window.parent.postMessage({moeH:document.documentElement.scrollHeight},'*');}
+  window.addEventListener('load',report);
+  window.addEventListener('resize',report);
+  new MutationObserver(report).observe(document.body,{childList:true,subtree:true,attributes:true});
+  setTimeout(report,400);
+})();
 </script>
 </body>
 </html>

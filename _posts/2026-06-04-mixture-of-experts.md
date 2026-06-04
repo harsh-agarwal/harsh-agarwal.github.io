@@ -111,7 +111,7 @@ Mixture of Experts (MoE) breaks this constraint. Instead of one monolithic netwo
 
 *See how a gating network routes different tokens to different specialists in real time.*
 
-<iframe src="/files-4/demo-1-gating.html" style="width:100%; height:700px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Gating Network Visualizer"></iframe>
+<iframe src="/files-4/demo-1-gating.html" style="width:100%; height:600px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Gating Network Visualizer"></iframe>
 
 Feed different token types (code, math, multilingual, logical, factual) into a simplified MoE layer and watch the routing weights update live. Notice how `def sort(arr):` reliably activates the code expert with ~72% weight, while `∫ f(x) dx` pivots strongly toward the math expert.
 
@@ -173,7 +173,7 @@ This noise prevents the gating network from converging too quickly on a fixed se
 
 *Visualize how sparsity scales across a model's expert pool.*
 
-<iframe src="/files-4/demo-2-sparsity.html" style="width:100%; height:680px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Sparse Activation Explorer"></iframe>
+<iframe src="/files-4/demo-2-sparsity.html" style="width:100%; height:600px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Sparse Activation Explorer"></iframe>
 
 Drag the top-k slider from 1 to 16 across a 64-expert pool. Watch how the activation rate, compute savings, and effective capacity ratio change. At Top-2 you're activating just 3.1% of experts — using 96.9% less expert compute than a fully dense model.
 
@@ -197,7 +197,7 @@ Where $f_i$ is the fraction of tokens dispatched to expert $i$, $p_i$ is the ave
 
 *Train a tiny MoE and watch expert collapse happen — then fix it with the auxiliary loss.*
 
-<iframe src="/files-4/demo-3-load-balance.html" style="width:100%; height:760px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Load Balancing Simulator"></iframe>
+<iframe src="/files-4/demo-3-load-balance.html" style="width:100%; height:600px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Load Balancing Simulator"></iframe>
 
 Toggle the auxiliary loss on and off during a simulated training run. Without it, two or three experts quickly absorb nearly all the routing traffic. With it, the distribution stays healthy. You can also adjust the loss coefficient α to see how aggressively it corrects imbalance.
 
@@ -254,3 +254,18 @@ The practical upshot: MoE models are memory-hungry but compute-efficient. They'r
 ---
 
 *The interactive demos in this post are built with vanilla JavaScript and run entirely in the browser with no dependencies.*
+
+<script>
+window.addEventListener('message', function(e) {
+  if (!e.data || typeof e.data.moeH !== 'number') return;
+  var iframes = document.querySelectorAll('iframe');
+  for (var i = 0; i < iframes.length; i++) {
+    try {
+      if (iframes[i].contentWindow === e.source) {
+        iframes[i].style.height = e.data.moeH + 'px';
+        break;
+      }
+    } catch (x) {}
+  }
+});
+</script>

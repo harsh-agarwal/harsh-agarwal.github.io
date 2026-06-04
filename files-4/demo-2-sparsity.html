@@ -500,5 +500,14 @@ buildTokenStream();
 buildGrid();
 updateStats();
 </script>
+<script>
+(function(){
+  function report(){window.parent.postMessage({moeH:document.documentElement.scrollHeight},'*');}
+  window.addEventListener('load',report);
+  window.addEventListener('resize',report);
+  new MutationObserver(report).observe(document.body,{childList:true,subtree:true,attributes:true});
+  setTimeout(report,400);
+})();
+</script>
 </body>
 </html>
