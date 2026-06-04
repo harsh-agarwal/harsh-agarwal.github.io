@@ -216,6 +216,12 @@ Toggle the auxiliary loss on and off during a simulated training run. Without it
 
 The practical upshot: MoE models are memory-hungry but compute-efficient. They're best suited for **high-throughput inference** environments where you have lots of VRAM but want fast per-token latency.
 
+### Expert parallelism: the hardware reality
+
+The "expert parallelism + all-to-all comms" row in the table above is where MoE earns its reputation for being hard to serve. In practice, a model with 64 experts can't fit all of them on a single GPU, so experts are sharded across a group of GPUs — each device owns a subset. When a batch of tokens arrives, the gating network decides which expert each token goes to, then the system must physically move each token to the GPU that owns its assigned expert. This is the **all-to-all** step: every GPU sends some tokens to every other GPU before computation can begin, and then the results come back the same way.
+
+That communication cost is the main reason you don't just swap a dense model for a MoE of the same active-parameter count and call it free. At scale, all-to-all across hundreds of GPUs becomes a meaningful fraction of step time — enough that DeepSeek-V3 describes minimizing it as a core design constraint, and why most MoE deployments require specialized parallelism libraries (Megablocks, DeepSpeed-MoE, or custom kernels) rather than off-the-shelf training loops. The routing problem and the communication problem are inseparable once you leave a single device.
+
 ---
 
 ## Where you'll find MoE in the wild
@@ -246,10 +252,10 @@ The practical upshot: MoE models are memory-hungry but compute-efficient. They'r
 
 ## Further reading
 
-- Fedus, W., Zoph, B., Shazeer, N. (2021). *Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity.* — The foundational modern MoE paper.
-- Jiang, A. Q. et al. (2024). *Mixtral of Experts.* — Practical open-weight MoE at 8×7B scale.
-- Shazeer, N. et al. (2017). *Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer.* — The original modern MoE proposal.
-- DeepSeek-AI (2024). *DeepSeek-V3 Technical Report.* — State-of-the-art MoE with novel load-balancing approach.
+- Fedus, W., Zoph, B., Shazeer, N. (2021). [*Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity.*](https://arxiv.org/abs/2101.03961) — The foundational modern MoE paper.
+- Jiang, A. Q. et al. (2024). [*Mixtral of Experts.*](https://arxiv.org/abs/2401.04088) — Practical open-weight MoE at 8×7B scale.
+- Shazeer, N. et al. (2017). [*Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer.*](https://arxiv.org/abs/1701.06538) — The original modern MoE proposal.
+- DeepSeek-AI (2024). [*DeepSeek-V3 Technical Report.*](https://arxiv.org/abs/2412.19437) — State-of-the-art MoE with novel load-balancing approach.
 
 ---
 
