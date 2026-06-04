@@ -17,7 +17,7 @@ Mixture of Experts (MoE) breaks this constraint. Instead of one monolithic netwo
 > **The key insight:** You can have a model with 256 billion *total* parameters but only activate ~8 billion for any given token. You get the knowledge capacity of a huge model at the inference cost of a much smaller one.
 
 <figure style="margin: 2em 0;">
-<svg viewBox="0 0 800 350" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;font-family:-apple-system,'Segoe UI',sans-serif;background:#0f0f13;border-radius:12px;border:1px solid #2e2e3a;">
+<svg viewBox="0 0 920 390" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;font-family:-apple-system,'Segoe UI',sans-serif;background:#0f0f13;border-radius:12px;border:1px solid #2e2e3a;">
   <defs>
     <marker id="moe-arr-purple" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
       <path d="M0,0.5 L0,5.5 L7,3 z" fill="#9b8dff"/>
@@ -30,72 +30,77 @@ Mixture of Experts (MoE) breaks this constraint. Instead of one monolithic netwo
     </marker>
   </defs>
 
-  <text x="400" y="22" text-anchor="middle" fill="#6b6880" font-size="11" letter-spacing="0.08em">MIXTURE OF EXPERTS — SINGLE LAYER FORWARD PASS</text>
+  <!-- Title -->
+  <text x="460" y="26" text-anchor="middle" fill="#9090b0" font-size="12" letter-spacing="0.07em">MIXTURE OF EXPERTS — SINGLE LAYER FORWARD PASS</text>
 
   <!-- INPUT -->
-  <rect x="18" y="148" width="108" height="54" rx="8" fill="#17171d" stroke="#9b8dff" stroke-width="1.5"/>
-  <text x="72" y="170" text-anchor="middle" fill="#e8e6f0" font-size="13" font-weight="600">Token</text>
-  <text x="72" y="190" text-anchor="middle" fill="#9b8dff" font-size="19" font-family="Georgia,serif" font-style="italic">x</text>
+  <rect x="16" y="158" width="124" height="62" rx="8" fill="#17171d" stroke="#9b8dff" stroke-width="1.5"/>
+  <text x="78" y="182" text-anchor="middle" fill="#e8e6f0" font-size="14" font-weight="600">Token</text>
+  <text x="78" y="205" text-anchor="middle" fill="#9b8dff" font-size="20" font-family="Georgia,serif" font-style="italic">x</text>
 
   <!-- Input → Gate -->
-  <line x1="126" y1="175" x2="172" y2="175" stroke="#9b8dff" stroke-width="1.5" marker-end="url(#moe-arr-purple)"/>
+  <line x1="140" y1="189" x2="182" y2="189" stroke="#9b8dff" stroke-width="1.5" marker-end="url(#moe-arr-purple)"/>
 
-  <!-- GATE -->
-  <rect x="174" y="128" width="148" height="94" rx="8" fill="#1a1628" stroke="#9b8dff" stroke-width="1.5"/>
-  <text x="248" y="153" text-anchor="middle" fill="#e8e6f0" font-size="12" font-weight="600">Gating Network</text>
-  <text x="248" y="172" text-anchor="middle" fill="#9b8dff" font-size="11" font-family="monospace">softmax( TopK(W_g · x) )</text>
-  <text x="248" y="191" text-anchor="middle" fill="#6b6880" font-size="10">scores all N experts</text>
-  <text x="248" y="208" text-anchor="middle" fill="#6b6880" font-size="10">activates only top k = 2</text>
+  <!-- GATE — wider box, formula split across two short lines -->
+  <rect x="184" y="130" width="192" height="120" rx="8" fill="#1a1628" stroke="#9b8dff" stroke-width="1.5"/>
+  <text x="280" y="158" text-anchor="middle" fill="#e8e6f0" font-size="14" font-weight="600">Gating Network</text>
+  <text x="280" y="179" text-anchor="middle" fill="#9b8dff" font-size="12" font-family="monospace">W_g · x  →  N logits</text>
+  <text x="280" y="198" text-anchor="middle" fill="#9b8dff" font-size="12" font-family="monospace">TopK(k=2) + softmax</text>
+  <text x="280" y="217" text-anchor="middle" fill="#8888a8" font-size="11">scores every expert</text>
+  <text x="280" y="235" text-anchor="middle" fill="#8888a8" font-size="11">only top 2 activate</text>
 
   <!-- Gate → fan junction -->
-  <line x1="322" y1="175" x2="362" y2="175" stroke="#6b6880" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="376" y1="190" x2="408" y2="190" stroke="#6b6880" stroke-width="1" stroke-dasharray="4,3"/>
   <!-- Vertical fan bar -->
-  <line x1="364" y1="45" x2="364" y2="305" stroke="#2e2e3a" stroke-width="1.5"/>
+  <line x1="410" y1="42" x2="410" y2="350" stroke="#2e2e3a" stroke-width="1.5"/>
+
+  <!-- EXPERTS: w=182 h=54 gap=10, start y=40 -->
+  <!-- E1 center=67, E2 center=131, E3 center=195, E4 center=259, E5 center=323 -->
 
   <!-- EXPERT 1 (active, 72%) -->
-  <rect x="404" y="43" width="148" height="44" rx="6" fill="#0b2218" stroke="#3ecfa4" stroke-width="2"/>
-  <text x="478" y="62" text-anchor="middle" fill="#3ecfa4" font-size="12" font-weight="700">Expert 1 — Code</text>
-  <text x="478" y="78" text-anchor="middle" fill="#3ecfa4" font-size="10" opacity="0.8">active · weight 0.72</text>
-  <line x1="364" y1="65" x2="402" y2="65" stroke="#3ecfa4" stroke-width="2" marker-end="url(#moe-arr-teal)"/>
-  <text x="383" y="59" text-anchor="middle" fill="#3ecfa4" font-size="11" font-weight="700">0.72</text>
+  <rect x="448" y="40" width="182" height="54" rx="7" fill="#0b2218" stroke="#3ecfa4" stroke-width="2"/>
+  <text x="539" y="63" text-anchor="middle" fill="#3ecfa4" font-size="13" font-weight="700">Expert 1 — Code</text>
+  <text x="539" y="82" text-anchor="middle" fill="#3ecfa4" font-size="11">active · weight 0.72</text>
+  <line x1="410" y1="67" x2="446" y2="67" stroke="#3ecfa4" stroke-width="2" marker-end="url(#moe-arr-teal)"/>
+  <text x="428" y="60" text-anchor="middle" fill="#3ecfa4" font-size="12" font-weight="700">0.72</text>
 
   <!-- EXPERT 2 (inactive) -->
-  <rect x="404" y="98" width="148" height="44" rx="6" fill="#17171d" stroke="#2e2e3a" stroke-width="1.2" opacity="0.45"/>
-  <text x="478" y="117" text-anchor="middle" fill="#6b6880" font-size="12">Expert 2 — Language</text>
-  <text x="478" y="133" text-anchor="middle" fill="#3e3e4e" font-size="10">dormant · weight ≈ 0</text>
-  <line x1="364" y1="120" x2="402" y2="120" stroke="#2e2e3a" stroke-width="1" stroke-dasharray="3,3"/>
+  <rect x="448" y="104" width="182" height="54" rx="7" fill="#141420" stroke="#3a3a52" stroke-width="1.5"/>
+  <text x="539" y="127" text-anchor="middle" fill="#9090b0" font-size="13">Expert 2 — Language</text>
+  <text x="539" y="146" text-anchor="middle" fill="#6b6880" font-size="11">dormant · weight ≈ 0</text>
+  <line x1="410" y1="131" x2="446" y2="131" stroke="#3a3a52" stroke-width="1" stroke-dasharray="4,3"/>
 
   <!-- EXPERT 3 (inactive) -->
-  <rect x="404" y="153" width="148" height="44" rx="6" fill="#17171d" stroke="#2e2e3a" stroke-width="1.2" opacity="0.45"/>
-  <text x="478" y="172" text-anchor="middle" fill="#6b6880" font-size="12">Expert 3 — Factual</text>
-  <text x="478" y="188" text-anchor="middle" fill="#3e3e4e" font-size="10">dormant · weight ≈ 0</text>
-  <line x1="364" y1="175" x2="402" y2="175" stroke="#2e2e3a" stroke-width="1" stroke-dasharray="3,3"/>
+  <rect x="448" y="168" width="182" height="54" rx="7" fill="#141420" stroke="#3a3a52" stroke-width="1.5"/>
+  <text x="539" y="191" text-anchor="middle" fill="#9090b0" font-size="13">Expert 3 — Factual</text>
+  <text x="539" y="210" text-anchor="middle" fill="#6b6880" font-size="11">dormant · weight ≈ 0</text>
+  <line x1="410" y1="195" x2="446" y2="195" stroke="#3a3a52" stroke-width="1" stroke-dasharray="4,3"/>
 
   <!-- EXPERT 4 (active, 28%) -->
-  <rect x="404" y="208" width="148" height="44" rx="6" fill="#0b2218" stroke="#3ecfa4" stroke-width="2"/>
-  <text x="478" y="227" text-anchor="middle" fill="#3ecfa4" font-size="12" font-weight="700">Expert 4 — Math</text>
-  <text x="478" y="243" text-anchor="middle" fill="#3ecfa4" font-size="10" opacity="0.8">active · weight 0.28</text>
-  <line x1="364" y1="230" x2="402" y2="230" stroke="#3ecfa4" stroke-width="2" marker-end="url(#moe-arr-teal)"/>
-  <text x="383" y="224" text-anchor="middle" fill="#3ecfa4" font-size="11" font-weight="700">0.28</text>
+  <rect x="448" y="232" width="182" height="54" rx="7" fill="#0b2218" stroke="#3ecfa4" stroke-width="2"/>
+  <text x="539" y="255" text-anchor="middle" fill="#3ecfa4" font-size="13" font-weight="700">Expert 4 — Math</text>
+  <text x="539" y="274" text-anchor="middle" fill="#3ecfa4" font-size="11">active · weight 0.28</text>
+  <line x1="410" y1="259" x2="446" y2="259" stroke="#3ecfa4" stroke-width="2" marker-end="url(#moe-arr-teal)"/>
+  <text x="428" y="252" text-anchor="middle" fill="#3ecfa4" font-size="12" font-weight="700">0.28</text>
 
   <!-- EXPERT 5 (inactive) -->
-  <rect x="404" y="263" width="148" height="44" rx="6" fill="#17171d" stroke="#2e2e3a" stroke-width="1.2" opacity="0.45"/>
-  <text x="478" y="282" text-anchor="middle" fill="#6b6880" font-size="12">Expert 5 — Logical</text>
-  <text x="478" y="298" text-anchor="middle" fill="#3e3e4e" font-size="10">dormant · weight ≈ 0</text>
-  <line x1="364" y1="285" x2="402" y2="285" stroke="#2e2e3a" stroke-width="1" stroke-dasharray="3,3"/>
+  <rect x="448" y="296" width="182" height="54" rx="7" fill="#141420" stroke="#3a3a52" stroke-width="1.5"/>
+  <text x="539" y="319" text-anchor="middle" fill="#9090b0" font-size="13">Expert 5 — Logical</text>
+  <text x="539" y="338" text-anchor="middle" fill="#6b6880" font-size="11">dormant · weight ≈ 0</text>
+  <line x1="410" y1="323" x2="446" y2="323" stroke="#3a3a52" stroke-width="1" stroke-dasharray="4,3"/>
 
-  <!-- Active experts → Output (cubic bezier curves) -->
-  <path d="M 552,65 C 592,65 592,162 628,162" stroke="#3ecfa4" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#moe-arr-teal)"/>
-  <path d="M 552,230 C 592,230 592,192 628,192" stroke="#3ecfa4" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#moe-arr-teal)"/>
+  <!-- Active experts → Output (cubic bezier) -->
+  <path d="M 630,67 C 668,67 668,172 694,172" stroke="#3ecfa4" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#moe-arr-teal)"/>
+  <path d="M 630,259 C 668,259 668,204 694,204" stroke="#3ecfa4" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#moe-arr-teal)"/>
 
   <!-- OUTPUT -->
-  <rect x="630" y="142" width="152" height="70" rx="8" fill="#1c1a10" stroke="#f5b942" stroke-width="1.5"/>
-  <text x="706" y="164" text-anchor="middle" fill="#e8e6f0" font-size="12" font-weight="600">Output y</text>
-  <text x="706" y="182" text-anchor="middle" fill="#f5b942" font-size="11" font-family="monospace">0.72 · E₁(x)</text>
-  <text x="706" y="198" text-anchor="middle" fill="#f5b942" font-size="11" font-family="monospace">+ 0.28 · E₄(x)</text>
+  <rect x="696" y="150" width="192" height="90" rx="8" fill="#1c1a10" stroke="#f5b942" stroke-width="1.5"/>
+  <text x="792" y="176" text-anchor="middle" fill="#e8e6f0" font-size="14" font-weight="600">Output y</text>
+  <text x="792" y="200" text-anchor="middle" fill="#f5b942" font-size="13" font-family="monospace">= 0.72 · E1(x)</text>
+  <text x="792" y="222" text-anchor="middle" fill="#f5b942" font-size="13" font-family="monospace">+ 0.28 · E4(x)</text>
 
   <!-- Footer note -->
-  <text x="478" y="326" text-anchor="middle" fill="#3e3e4e" font-size="10">3 of 5 experts dormant — zero compute cost, full parameter capacity</text>
+  <text x="460" y="372" text-anchor="middle" fill="#7a7a99" font-size="11">3 of 5 experts dormant — zero compute cost, full parameter capacity</text>
 </svg>
 <figcaption style="text-align:center;font-size:12px;color:#6b6880;margin-top:10px;">A single MoE layer forward pass. The gating network scores all experts but only the top-k=2 fire. Dormant experts incur zero compute while still contributing to total model capacity.</figcaption>
 </figure>
