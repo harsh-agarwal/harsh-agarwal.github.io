@@ -129,7 +129,7 @@ Mixture of Experts (MoE) breaks this constraint. Instead of one monolithic netwo
 
 ## Demo 1: The Gating Network
 
-*See how a gating network routes different tokens to different specialists in real time.*
+To make routing concrete, we built a minimal MoE layer that runs the actual gating math live in the browser. It implements a weight matrix `W_g` that maps five token types to per-expert logit scores, applies TopK masking, and normalizes with softmax — recomputed on every interaction with no precomputed states. The five token types (code, math, language, logic, factual) have distinct logit profiles that reflect what a trained gate would learn from real data. The noise slider adds Gaussian jitter before TopK selection, simulating the noisy top-k trick used during training to prevent the gate from locking onto the same experts every step.
 
 <iframe src="/files-4/demo-1-gating.html" style="width:100%; height:600px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Gating Network Visualizer"></iframe>
 
@@ -191,7 +191,7 @@ This noise prevents the gating network from converging too quickly on a fixed se
 
 ## Demo 2: Sparse Activation Explorer
 
-*Visualize how sparsity scales across a model's expert pool.*
+To show how the efficiency math plays out at scale, we built a configurable expert pool that models any combination of N total experts and k active per token. It computes the exact activation rate, FLOP savings, and capacity-to-compute ratio from first principles — no approximations. The expert grid renders the full pool as a cell array and lights up whichever experts fire for each token. Hit "Animate token stream" to watch a sequence of tokens route through the layer: you'll see a different sparse subset activate each time, distributed across the pool rather than concentrating on the same cells.
 
 <iframe src="/files-4/demo-2-sparsity.html" style="width:100%; height:600px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Sparse Activation Explorer"></iframe>
 
@@ -215,7 +215,7 @@ Where $f_i$ is the fraction of tokens dispatched to expert $i$, $p_i$ is the ave
 
 ## Demo 3: Load Balancing Simulator
 
-*Train a tiny MoE and watch expert collapse happen — then fix it with the auxiliary loss.*
+To make collapse tangible, we built a training simulator that runs the actual feedback loop. At each step, a batch of tokens is routed to experts via softmax(logits); experts that receive more tokens accumulate stronger gradient signal, nudging their logit scores upward and attracting even more tokens next step. The auxiliary loss counters this by penalizing the product of routing frequency and routing probability per expert — exactly the Switch Transformer formulation. The simulation runs at roughly 8 steps per second, fast enough to watch collapse develop within seconds of disabling the loss, and to see the correction kick in when you re-enable it. The expert quality cards at the bottom track cumulative token counts, so the training history is visible even after you pause.
 
 <iframe src="/files-4/demo-3-load-balance.html" style="width:100%; height:600px; border:none; border-radius:8px; margin: 1.5em 0; display:block;" loading="lazy" title="MoE Load Balancing Simulator"></iframe>
 
