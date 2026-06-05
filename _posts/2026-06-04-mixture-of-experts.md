@@ -221,14 +221,66 @@ Toggle the auxiliary loss on and off during a simulated training run. Without it
 
 ## Sparse vs. dense: the tradeoffs
 
-| Dimension | Dense model | MoE model |
-|---|---|---|
-| **Training cost** | Lower for same param count | Higher — all experts need gradient signal |
-| **Inference compute** | Proportional to all params | Only active experts (2–8× cheaper) |
-| **Memory footprint** | Matches active params | Must load all experts into VRAM |
-| **Routing overhead** | None | Small — gating network is tiny |
-| **Expert collapse** | Not applicable | Real risk without load-balancing loss |
-| **Hardware complexity** | Simple all-reduce | Expert parallelism + all-to-all comms |
+<div style="margin: 2em 0; border-radius: 12px; overflow: hidden; border: 1px solid #2e2e3a; font-size: 13px; line-height: 1.5;">
+<table style="width:100%; border-collapse: collapse; background: #0f0f13;">
+  <colgroup>
+    <col style="width:24%">
+    <col style="width:38%">
+    <col style="width:38%">
+  </colgroup>
+  <thead>
+    <tr style="background:#17171d; border-bottom: 2px solid #2e2e3a;">
+      <th style="padding:13px 18px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#6b6880; font-weight:600;">Dimension</th>
+      <th style="padding:13px 18px; text-align:left; color:#e8e6f0; font-weight:600;">Dense model</th>
+      <th style="padding:13px 18px; text-align:left; color:#9b8dff; font-weight:600;">MoE model</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="background:#13131a;">
+      <td colspan="3" style="padding:7px 18px; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#4a4860; font-weight:600;">Compute</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1e1e28;">
+      <td style="padding:13px 18px; color:#e8e6f0; font-weight:600;">Training cost</td>
+      <td style="padding:13px 18px; color:#3ecfa4;">✓&nbsp; Lower for same parameter count</td>
+      <td style="padding:13px 18px; color:#f07a54;">↑&nbsp; Higher — all experts need gradient signal</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1e1e28;">
+      <td style="padding:13px 18px; color:#e8e6f0; font-weight:600;">Inference compute</td>
+      <td style="padding:13px 18px; color:#6b6880;">Full params touched every token</td>
+      <td style="padding:13px 18px; color:#3ecfa4;">✓&nbsp; Only active experts — 2–8× cheaper</td>
+    </tr>
+    <tr style="background:#13131a;">
+      <td colspan="3" style="padding:7px 18px; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#4a4860; font-weight:600;">Memory</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1e1e28;">
+      <td style="padding:13px 18px; color:#e8e6f0; font-weight:600;">VRAM footprint</td>
+      <td style="padding:13px 18px; color:#3ecfa4;">✓&nbsp; Matches active parameter count</td>
+      <td style="padding:13px 18px; color:#f07a54;">↑&nbsp; Must load all N experts into VRAM</td>
+    </tr>
+    <tr style="background:#13131a;">
+      <td colspan="3" style="padding:7px 18px; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#4a4860; font-weight:600;">Routing</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1e1e28;">
+      <td style="padding:13px 18px; color:#e8e6f0; font-weight:600;">Routing overhead</td>
+      <td style="padding:13px 18px; color:#6b6880;">—&nbsp; None</td>
+      <td style="padding:13px 18px; color:#6b6880;">≈&nbsp; Tiny — gating matrix only</td>
+    </tr>
+    <tr style="border-bottom:1px solid #1e1e28;">
+      <td style="padding:13px 18px; color:#e8e6f0; font-weight:600;">Expert collapse</td>
+      <td style="padding:13px 18px; color:#6b6880;">—&nbsp; Not applicable</td>
+      <td style="padding:13px 18px; color:#f5b942;">⚠&nbsp; Real risk without load-balancing loss</td>
+    </tr>
+    <tr style="background:#13131a;">
+      <td colspan="3" style="padding:7px 18px; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#4a4860; font-weight:600;">Hardware</td>
+    </tr>
+    <tr>
+      <td style="padding:13px 18px; color:#e8e6f0; font-weight:600;">Distributed complexity</td>
+      <td style="padding:13px 18px; color:#3ecfa4;">✓&nbsp; Simple all-reduce</td>
+      <td style="padding:13px 18px; color:#f07a54;">↑&nbsp; Expert parallelism + all-to-all comms</td>
+    </tr>
+  </tbody>
+</table>
+</div>
 
 The practical upshot: MoE models are memory-hungry but compute-efficient. They're best suited for **high-throughput inference** environments where you have lots of VRAM but want fast per-token latency.
 
