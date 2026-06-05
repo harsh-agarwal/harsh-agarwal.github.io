@@ -24,6 +24,10 @@ Mixture of Experts (MoE) breaks this constraint. Instead of one monolithic netwo
 .info-tip .tip-body::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#3a3a52;}
 .diagram-tips{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;margin-top:10px;font-size:12px;color:#6b6880;}
 .diagram-tips span{display:flex;align-items:center;}
+.info-tip .tip-body.tip-below{top:calc(100% + 8px) !important;bottom:auto !important;}
+.info-tip .tip-body.tip-below::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#3a3a52;}
+.info-tip .tip-body.tip-left{left:0 !important;right:auto !important;transform:none !important;}
+.info-tip .tip-body.tip-right{left:auto !important;right:0 !important;transform:none !important;}
 </style>
 
 <figure style="margin: 2em 0;">
@@ -342,4 +346,18 @@ window.addEventListener('message', function(e) {
     } catch (x) {}
   }
 });
+(function(){
+  document.querySelectorAll('.info-tip').forEach(function(el){
+    el.addEventListener('mouseenter', function(){
+      var b = el.querySelector('.tip-body');
+      if(!b) return;
+      b.classList.remove('tip-below','tip-left','tip-right');
+      var r = el.getBoundingClientRect();
+      if(r.top < 160) b.classList.add('tip-below');
+      var cx = r.left + r.width / 2;
+      if(cx - 120 < 8) b.classList.add('tip-left');
+      else if(cx + 120 > window.innerWidth - 8) b.classList.add('tip-right');
+    });
+  });
+})();
 </script>
