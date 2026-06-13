@@ -7,6 +7,12 @@ tags: [distributed-training, parallelism, deep-learning, gpu, infrastructure]
 description: "DDP, FSDP, Pipeline, Tensor, and 3D parallelism — what each actually does, when each breaks, and how to choose."
 ---
 
+Training a large model isn't hard because the math is complicated. It's hard because the model doesn't fit. A 70-billion-parameter transformer needs roughly 140 GB just to store its fp16 weights — and training requires 4× that for gradients and optimizer states. An 80 GB GPU can't hold it. So you split the work.
+
+But *how* you split it determines whether your training run is efficient or whether half your GPUs are sitting idle waiting for each other. This post covers the five main parallelism strategies, not as textbook definitions but as a field guide: what each one actually does to your GPUs, where the hidden costs are, and when to use which.
+
+---
+
 <style>
 .fig{background:#fff;border:1px solid #DDE3ED;border-radius:12px;padding:24px;margin:28px 0;box-shadow:0 1px 4px rgba(30,40,70,0.05);}
 .fig h3{font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:12px;font-weight:600;color:#6B7A94;margin-bottom:12px;letter-spacing:0.04em;}
@@ -15,12 +21,6 @@ description: "DDP, FSDP, Pipeline, Tensor, and 3D parallelism — what each actu
 #parallelism-root{margin:40px 0;border-radius:16px;overflow:hidden;border:1px solid #DDE3ED;box-shadow:0 2px 12px rgba(30,40,70,0.07);}
 .demo-loading{text-align:center;padding:60px 20px;color:#6B7A94;font-family:'SF Mono',monospace;font-size:13px;background:#F4F6FB;border-radius:16px;}
 </style>
-
-Training a large model isn't hard because the math is complicated. It's hard because the model doesn't fit. A 70-billion-parameter transformer needs roughly 140 GB just to store its fp16 weights — and training requires 4× that for gradients and optimizer states. An 80 GB GPU can't hold it. So you split the work.
-
-But *how* you split it determines whether your training run is efficient or whether half your GPUs are sitting idle waiting for each other. This post covers the five main parallelism strategies, not as textbook definitions but as a field guide: what each one actually does to your GPUs, where the hidden costs are, and when to use which.
-
----
 
 ## 1. Distributed Data Parallel (DDP)
 
