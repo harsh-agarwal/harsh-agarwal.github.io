@@ -7,11 +7,11 @@ tags: [distributed-training, parallelism, deep-learning, gpu, infrastructure]
 description: "DDP, FSDP, Pipeline, Tensor, and 3D parallelism — what each actually does, when each breaks, and how to choose."
 ---
 
-Training a large model isn't hard because the math is complicated. It's hard because the model doesn't fit. A 70-billion-parameter transformer needs roughly 140 GB just to store its fp16 weights — and training requires 4× that for gradients and optimizer states. An 80 GB GPU can't hold it. So you split the work.
+Training a large model isn't hard because the math is complicated. It's hard because the model doesn't fit. A 70B transformer needs ~140 GB just to store its fp16 weights — add gradients and optimizer state and you're at 1.12 TB. An 80 GB A100 can't hold it. So you split the work across GPUs.
 
-But *how* you split it determines whether your training run is efficient or whether half your GPUs are sitting idle waiting for each other. This post covers the five main parallelism strategies, not as textbook definitions but as a field guide: what each one actually does to your GPUs, where the hidden costs are, and when to use which.
+There are five ways to do that split: **DDP**, **FSDP**, **Pipeline**, **Tensor**, and **3D parallelism**. Each makes a different tradeoff between memory, communication, and utilization — and choosing wrong means half your GPUs idle while the other half wait.
 
----
+The explorer below lets you feel those tradeoffs directly. Pick any model from GPT-2 to LLaMA 405B, choose a GPU cluster, and switch between strategies — watch memory bars shift, see the OOM indicator flip, run the training simulation to observe GPU temperatures through each phase. Spend a minute here before reading the deep dives; the concepts will land much faster once you've seen the numbers move.
 
 <style>
 .fig{background:#fff;border:1px solid #DDE3ED;border-radius:12px;padding:24px;margin:28px 0;box-shadow:0 1px 4px rgba(30,40,70,0.05);}
@@ -21,6 +21,14 @@ But *how* you split it determines whether your training run is efficient or whet
 #parallelism-root{margin:40px 0;border-radius:16px;overflow:hidden;border:1px solid #DDE3ED;box-shadow:0 2px 12px rgba(30,40,70,0.07);}
 .demo-loading{text-align:center;padding:60px 20px;color:#6B7A94;font-family:'SF Mono',monospace;font-size:13px;background:#F4F6FB;border-radius:16px;}
 </style>
+
+<div id="parallelism-root"><div class="demo-loading">Loading Parallelism Explorer…</div></div>
+
+---
+
+Below, I go deep on each strategy: what it actually does to your GPUs, where the hidden costs are, and when to reach for it.
+
+---
 
 ## 1. Distributed Data Parallel (DDP)
 
@@ -363,14 +371,6 @@ Training memory per parameter with mixed-precision Adam:
 </table>
 
 So a 70B model needs 70 × 16 = **1.12 TB** of GPU memory for training (before activations). On 8× 80 GB GPUs (640 GB total), DDP can't even fit the model. FSDP brings it to 1.12 TB / 8 = 140 GB total, which is 17.5 GB per GPU for model state, leaving plenty of room for activations.
-
----
-
-## Interactive Parallelism Explorer
-
-Pick a model, pick a GPU cluster, switch between paradigms, and watch the memory bars and efficiency metrics update in real time. Run the training simulation to see GPU temperatures and memory fluctuate through forward/backward/communication phases.
-
-<div id="parallelism-root"><div class="demo-loading">Loading Parallelism Explorer…</div></div>
 
 ---
 
