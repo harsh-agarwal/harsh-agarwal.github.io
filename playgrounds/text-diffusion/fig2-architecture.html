@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 2 — Model Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Georgia, serif;
+    background: #fafafa;
+  }
+  .figure-wrap {
+    background: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 28px 32px 22px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .fig-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .fig-caption {
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+    line-height: 1.6;
+    margin-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+  }
+  .tooltip {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 7px;
+    padding: 10px 13px;
+    font-size: 12px;
+    color: #444;
+    line-height: 1.6;
+    max-width: 200px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .15s;
+  }
+  .svg-wrap { position: relative; }
+</style>
+</head>
+<body>
+<div class="figure-wrap">
+  <div class="fig-title">Figure 2 — Denoising transformer input signals</div>
+
+  <div class="svg-wrap">
+    <svg id="arch-svg" width="100%" viewBox="0 0 660 310" role="img"
+         aria-label="Three input embeddings summed into the transformer encoder">
+      <title>Three embeddings: token, position, timestep summed into transformer encoder</title>
+
+      <!-- ── Embedding boxes ── -->
+      <!-- Token emb -->
+      <rect x="20" y="30" width="178" height="70" rx="8"
+            fill="#f0f7ff" stroke="#bcd5f0" stroke-width="1"/>
+      <text x="109" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="#1a5fa8">Token embedding</text>
+      <text x="109" y="78" text-anchor="middle" font-size="11" fill="#5584b5">tok_emb(x_t)</text>
+      <text x="109" y="93" text-anchor="middle" font-size="11" fill="#7ca3cc">What token is here?</text>
+
+      <!-- Position emb -->
+      <rect x="241" y="30" width="178" height="70" rx="8"
+            fill="#f2faf2" stroke="#b2ddb2" stroke-width="1"/>
+      <text x="330" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="#2a6e2a">Position embedding</text>
+      <text x="330" y="78" text-anchor="middle" font-size="11" fill="#4d8c4d">pos_emb(pos)</text>
+      <text x="330" y="93" text-anchor="middle" font-size="11" fill="#6ea86e">Where in sequence?</text>
+
+      <!-- Timestep emb -->
+      <rect x="462" y="30" width="178" height="70" rx="8"
+            fill="#fffbf0" stroke="#f0d78a" stroke-width="1"/>
+      <text x="551" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="#8a6200">Timestep embedding</text>
+      <text x="551" y="78" text-anchor="middle" font-size="11" fill="#a07820">t_emb(t)</text>
+      <text x="551" y="93" text-anchor="middle" font-size="11" fill="#b89040">How noisy is it?</text>
+
+      <!-- Plus signs -->
+      <text x="222" y="72" text-anchor="middle" font-size="22" fill="#ccc">+</text>
+      <text x="443" y="72" text-anchor="middle" font-size="22" fill="#ccc">+</text>
+
+      <!-- Sum arrow down -->
+      <line x1="330" y1="100" x2="330" y2="148"
+            stroke="#ccc" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+      <text x="355" y="130" font-size="11" fill="#aaa">element-wise sum</text>
+
+      <!-- Transformer encoder box -->
+      <rect x="170" y="148" width="320" height="56" rx="8"
+            fill="#f8f4ff" stroke="#c8b8ee" stroke-width="1"/>
+      <text x="330" y="171" text-anchor="middle" font-size="13" font-weight="600" fill="#5a3a9a">Transformer encoder</text>
+      <text x="330" y="190" text-anchor="middle" font-size="11" fill="#8060be">2 layers · 4 heads · d=64 · bidirectional</text>
+
+      <!-- Arrow down to head -->
+      <line x1="330" y1="204" x2="330" y2="248"
+            stroke="#ccc" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+      <!-- Linear head -->
+      <rect x="220" y="248" width="220" height="46" rx="8"
+            fill="#fff4f4" stroke="#f0b8b8" stroke-width="1"/>
+      <text x="330" y="267" text-anchor="middle" font-size="13" font-weight="600" fill="#a03030">Linear head</text>
+      <text x="330" y="283" text-anchor="middle" font-size="11" fill="#c05050">logits → (B, L, 27 clean tokens)</text>
+
+      <!-- Bidirectional attention label -->
+      <line x1="170" y1="176" x2="60" y2="176"
+            stroke="#ddd" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="55" y="172" text-anchor="end" font-size="11" fill="#bbb">No causal</text>
+      <text x="55" y="184" text-anchor="end" font-size="11" fill="#bbb">mask ←→</text>
+
+      <defs>
+        <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="#ccc" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+    </svg>
+
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <p class="fig-caption">
+    Token, position, and timestep embeddings are summed element-wise. The transformer uses
+    <em>bidirectional</em> attention — no causal mask — so every position can attend to every other.
+    The output head never predicts <code>[MASK]</code>, only the 27 clean vocabulary tokens.
+  </p>
+</div>
+
+<script>
+  // Hover tooltips for each embedding box
+  const tips = {
+    token: "Token embedding (V+1=28 entries):\nEncodes which character is at each position.\nThe [MASK] token (index 27) gets its own learned vector — the model learns to treat it as 'unknown'.",
+    position: "Position embedding (L=14 entries):\nLearned vector for each sequence position.\nStandard sinusoidal-free approach — positions 0-13 each map to a unique 64-dim vector.",
+    timestep: "Timestep embedding (T+1=21 entries):\nOne learned vector per noise level t ∈ {0…20}.\nCrucial — without this, the model can't calibrate its confidence based on how much masking occurred.",
+    encoder: "TransformerEncoder:\n2 layers, 4 attention heads, d_model=64.\nNo causal mask — full bidirectional attention.\nEvery position attends to every other position simultaneously.",
+    head: "Linear projection (d_model → V):\nProjects the 64-dim hidden state to logits\nover the 27 clean vocabulary tokens.\n[MASK] is never an output, only an input."
+  };
+
+  const svg = document.getElementById('arch-svg');
+  const tooltip = document.getElementById('tooltip');
+  const svgWrap = document.querySelector('.svg-wrap');
+
+  const regions = [
+    { key: 'token',    x1: 20,  y1: 30,  x2: 198, y2: 100 },
+    { key: 'position', x1: 241, y1: 30,  x2: 419, y2: 100 },
+    { key: 'timestep', x1: 462, y1: 30,  x2: 640, y2: 100 },
+    { key: 'encoder',  x1: 170, y1: 148, x2: 490, y2: 204 },
+    { key: 'head',     x1: 220, y1: 248, x2: 440, y2: 294 },
+  ];
+
+  svg.addEventListener('mousemove', e => {
+    const rect = svg.getBoundingClientRect();
+    const scaleX = 660 / rect.width;
+    const scaleY = 310 / rect.height;
+    const sx = (e.clientX - rect.left) * scaleX;
+    const sy = (e.clientY - rect.top)  * scaleY;
+
+    let hit = null;
+    for (const r of regions) {
+      if (sx >= r.x1 && sx <= r.x2 && sy >= r.y1 && sy <= r.y2) { hit = r.key; break; }
+    }
+
+    if (hit) {
+      tooltip.style.opacity = '1';
+      tooltip.innerHTML = tips[hit].replace(/\n/g, '<br>');
+      const wRect = svgWrap.getBoundingClientRect();
+      let left = e.clientX - wRect.left + 12;
+      let top  = e.clientY - wRect.top  - 10;
+      if (left + 210 > wRect.width) left = e.clientX - wRect.left - 222;
+      tooltip.style.left = left + 'px';
+      tooltip.style.top  = top  + 'px';
+    } else {
+      tooltip.style.opacity = '0';
+    }
+  });
+  svg.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
+</script>
+</body>
+</html>

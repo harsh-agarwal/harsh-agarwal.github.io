@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 1 — The Forward Process</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Georgia, serif;
+    background: #fafafa;
+    padding: 0;
+  }
+  .figure-wrap {
+    background: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 28px 32px 22px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .fig-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .slider-row label {
+    font-size: 13px;
+    color: #555;
+    white-space: nowrap;
+    font-family: "SFMono-Regular", Consolas, monospace;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 3px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    outline: none;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #c47a2a;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1.5px #c47a2a;
+  }
+  .slider-val {
+    font-size: 13px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    color: #333;
+    min-width: 52px;
+    text-align: right;
+  }
+  .token-row {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin: 6px 0 18px;
+  }
+  .tok {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 13px;
+    width: 20px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    border: 1px solid #e0e0e0;
+    transition: background .25s, color .25s, border-color .25s;
+    font-weight: 500;
+  }
+  .tok.clean  { background: #fff; color: #2c2c2c; }
+  .tok.masked { background: #fdf3e3; color: #c47a2a; border-color: #f0c97a; }
+  .axis-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #aaa;
+    padding: 0 2px;
+    margin-bottom: 4px;
+  }
+  .rate-bar-wrap {
+    margin: 0 0 6px;
+    background: #f4f4f4;
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+  }
+  .rate-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #f5e6c8, #c47a2a);
+    border-radius: 4px;
+    transition: width .2s;
+  }
+  .fig-caption {
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+    line-height: 1.6;
+    margin-top: 14px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+  }
+  .stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    margin: 10px 0 16px;
+    font-size: 12px;
+    color: #777;
+  }
+  .stat-item span { font-weight: 600; color: #333; font-family: "SFMono-Regular", Consolas, monospace; }
+</style>
+</head>
+<body>
+<div class="figure-wrap">
+  <div class="fig-title">Figure 1 — The Forward Process (masking noise schedule)</div>
+
+  <div class="slider-row">
+    <label>t =</label>
+    <input type="range" min="0" max="20" value="0" id="t-slider">
+    <span class="slider-val" id="t-val">0 &nbsp;(0%)</span>
+  </div>
+
+  <div class="rate-bar-wrap">
+    <div class="rate-bar" id="rate-bar" style="width:0%"></div>
+  </div>
+  <div class="axis-labels">
+    <span>t = 0 &nbsp; clean</span>
+    <span>t = 20 &nbsp; pure noise</span>
+  </div>
+
+  <div class="token-row" id="token-row"></div>
+
+  <div class="stats-row">
+    <div>Masked: <span id="stat-masked">0</span> / 42</div>
+    <div>Visible: <span id="stat-visible">42</span> / 42</div>
+    <div>Rate: <span id="stat-rate">0%</span></div>
+  </div>
+
+  <p class="fig-caption">
+    Slide to see <code>q_forward(x₀, t)</code> in action. Each position masks independently (i.i.d.) with probability <em>t/T</em> —
+    so you can jump to any noise level directly, without simulating all steps in between.
+  </p>
+</div>
+
+<script>
+  const SENTENCE = "the cat sat on the mat by the old oak tree";
+  const N = SENTENCE.length; // 42
+  const T = 20;
+  // Fixed random seeds per position — deterministic so the slider is smooth and reproducible
+  const seeds = [
+    0.72,0.18,0.55,0.91,0.33,0.67,0.44,0.82,0.11,0.59,
+    0.76,0.29,0.95,0.48,0.63,0.07,0.84,0.37,0.51,0.22,
+    0.88,0.14,0.70,0.42,0.96,0.31,0.58,0.03,0.79,0.25,
+    0.61,0.47,0.93,0.16,0.74,0.39,0.86,0.08,0.52,0.68,
+    0.20,0.45
+  ];
+
+  const slider  = document.getElementById('t-slider');
+  const tVal    = document.getElementById('t-val');
+  const row     = document.getElementById('token-row');
+  const ratebar = document.getElementById('rate-bar');
+  const sMasked = document.getElementById('stat-masked');
+  const sVis    = document.getElementById('stat-visible');
+  const sRate   = document.getElementById('stat-rate');
+
+  function render(t) {
+    const rate = t / T;
+    tVal.textContent = t + '\u00a0(' + Math.round(rate*100) + '%)';
+    ratebar.style.width = (rate*100) + '%';
+
+    row.innerHTML = '';
+    let masked = 0;
+    for (let i = 0; i < N; i++) {
+      const isMasked = seeds[i] < rate;
+      if (isMasked) masked++;
+      const el = document.createElement('div');
+      el.className = 'tok ' + (isMasked ? 'masked' : 'clean');
+      el.textContent = isMasked ? '█' : (SENTENCE[i] === ' ' ? '\u00b7' : SENTENCE[i]);
+      row.appendChild(el);
+    }
+    sMasked.textContent = masked;
+    sVis.textContent    = N - masked;
+    sRate.textContent   = Math.round(rate * 100) + '%';
+  }
+
+  slider.addEventListener('input', () => render(parseInt(slider.value)));
+  render(0);
+</script>
+</body>
+</html>

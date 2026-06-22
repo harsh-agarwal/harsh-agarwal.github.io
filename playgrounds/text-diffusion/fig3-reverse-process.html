@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 3 — Reverse Process</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Georgia, serif; background: #fafafa; }
+  .figure-wrap {
+    background: #fff; border: 1px solid #e8e8e8; border-radius: 10px;
+    padding: 28px 32px 22px; max-width: 720px; margin: 0 auto;
+  }
+  .fig-title {
+    font-size: 12px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: #999; margin-bottom: 20px; text-align: center;
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .panel-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #bbb; margin-bottom: 10px; }
+
+  .chart-wrap { position: relative; height: 190px; }
+  canvas { display: block; width: 100% !important; }
+  .reveal-formula {
+    background: #fafafa; border: 1px solid #eee; border-radius: 6px;
+    padding: 7px 12px; font-size: 12px; font-family: "SFMono-Regular", Consolas, monospace;
+    color: #666; margin: 8px 0 0; text-align: center;
+  }
+
+  .trace-controls { display: flex; gap: 7px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    padding: 5px 11px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd;
+    background: #fafafa; cursor: pointer; color: #444; transition: background .15s;
+  }
+  .btn:hover { background: #f0f0f0; }
+  .btn.primary { background: #fdf3e3; border-color: #f0c97a; color: #8a6000; }
+  .btn.primary:hover { background: #fce8c0; }
+
+  .prog-wrap { height: 3px; background: #f0f0f0; border-radius: 2px; margin-bottom: 10px; }
+  .prog-bar  { height: 100%; background: #c47a2a; border-radius: 2px; transition: width .2s; width: 0%; }
+
+  .grid-box { background: #fafafa; border: 1px solid #eee; border-radius: 7px; padding: 12px 14px; }
+  .grid-meta {
+    font-size: 10px; font-family: monospace; color: #aaa; margin-bottom: 8px;
+    display: flex; justify-content: space-between;
+  }
+  .live-row { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 8px; }
+  .dtok {
+    font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; font-weight: 500;
+    width: 18px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; border: 1px solid #eee;
+    transition: background .2s, color .2s, border-color .2s;
+  }
+  .dtok.masked { background: #fdf3e3; color: #c47a2a; border-color: #f0d090; }
+  .dtok.clean  { background: #fff; color: #333; border-color: #e8e8e8; }
+  .dtok.fresh  { background: #ebf5eb; color: #2a6e2a; border-color: #a8d4a8; animation: tpop .25s; }
+  @keyframes tpop { 0%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
+  .hist { max-height: 80px; overflow-y: auto; border-top: 1px solid #f0f0f0; padding-top: 7px; display: flex; flex-direction: column; gap: 3px; }
+  .hist-row { display: flex; align-items: center; gap: 5px; }
+  .hist-t   { font-size: 10px; font-family: monospace; color: #ccc; min-width: 38px; }
+  .hist-d   { font-size: 11px; color: #aaa; font-family: monospace; }
+  .hist-d .n { color: #2a6e2a; font-weight: 700; }
+
+  .fig-caption {
+    font-size: 12px; color: #888; text-align: center; line-height: 1.6;
+    margin-top: 16px; border-top: 1px solid #f0f0f0; padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="figure-wrap">
+  <div class="fig-title">Figure 3 — The 1/t reveal schedule &amp; reverse process</div>
+
+  <div class="two-col">
+    <div>
+      <div class="panel-label">Expected mask fraction</div>
+      <div class="chart-wrap">
+        <canvas id="schedCanvas" role="img"
+          aria-label="Mask fraction decreases linearly from 1.0 at t=20 to 0 at t=0">
+          Mask fraction = (t-1)/T, from 1.0 at t=20 down to 0 at t=0.
+        </canvas>
+      </div>
+      <div class="reveal-formula">P(reveal at step t) = 1/t &nbsp;·&nbsp; ~2 tokens/step</div>
+    </div>
+
+    <div>
+      <div class="panel-label">Live generation trace</div>
+      <div class="trace-controls">
+        <button class="btn primary" onclick="stepReverse()">Step →</button>
+        <button class="btn" id="btn-auto" onclick="toggleAuto()">▶ Auto</button>
+        <button class="btn" onclick="resetReverse()">Reset</button>
+      </div>
+      <div class="prog-wrap"><div class="prog-bar" id="r-prog"></div></div>
+      <div class="grid-box">
+        <div class="grid-meta">
+          <span id="r-meta">t = 20 — fully masked</span>
+          <span id="r-count">0 / 42</span>
+        </div>
+        <div class="live-row" id="r-live"></div>
+        <div class="hist" id="r-hist"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="fig-caption">
+    Left: mask fraction decreases by 1/T per step — exact inverse of the forward schedule.
+    Right: 42 positions means ~2 tokens reveal per step even at t=20, so the grid is visibly active throughout.
+    Green tokens are newly revealed; history only logs steps where something changed.
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const T = 20;
+const TARGET = "the cat sat on the mat by the old oak tree";
+const N = TARGET.length; // 42
+
+/* ── Schedule chart ── */
+const stepsDesc = Array.from({length: T+1}, (_, i) => T - i);
+const maskFrac  = stepsDesc.map(t => t === 0 ? 0 : (t-1)/T);
+
+new Chart(document.getElementById('schedCanvas'), {
+  type: 'line',
+  data: {
+    labels: stepsDesc.map(t => 't='+t),
+    datasets: [{
+      label: 'Mask fraction',
+      data: maskFrac,
+      borderColor: '#c47a2a',
+      backgroundColor: 'rgba(196,122,42,0.07)',
+      fill: true, tension: 0, pointRadius: 2.5,
+      pointBackgroundColor: '#c47a2a', borderWidth: 1.8
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font:{size:10}, color:'#bbb', maxTicksLimit:6 }},
+      y: { min:0, max:1, grid:{color:'rgba(0,0,0,0.04)'},
+           ticks:{ font:{size:10}, color:'#bbb', callback: v => Math.round(v*100)+'%' }}
+    }
+  }
+});
+
+/* ── Reverse trace ── */
+let revT, revToks, autoTimer, autoRunning;
+
+function resetReverse() {
+  clearInterval(autoTimer); autoRunning = false;
+  document.getElementById('btn-auto').textContent = '▶ Auto';
+  revT = T; revToks = Array(N).fill(null);
+  document.getElementById('r-prog').style.width = '0%';
+  document.getElementById('r-meta').textContent = 't = ' + T + ' — fully masked';
+  document.getElementById('r-count').textContent = '0 / ' + N;
+  document.getElementById('r-hist').innerHTML = '';
+  buildGrid();
+}
+
+function buildGrid() {
+  const row = document.getElementById('r-live');
+  row.innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    const el = document.createElement('span');
+    el.className = 'dtok masked';
+    el.textContent = '█';
+    el.id = 'rtok-' + i;
+    row.appendChild(el);
+  }
+}
+
+function stepReverse() {
+  if (revT <= 0) return;
+  const rate  = 1.0 / revT;
+  const fresh = [];
+  for (let i = 0; i < N; i++) {
+    if (revToks[i] === null && Math.random() < rate) {
+      revToks[i] = TARGET[i]; fresh.push(i);
+    }
+  }
+  revT--;
+
+  fresh.forEach(i => {
+    const el = document.getElementById('rtok-' + i);
+    const ch = TARGET[i];
+    el.className = 'dtok fresh';
+    el.textContent = ch === ' ' ? '·' : ch;
+    setTimeout(() => { el.className = 'dtok clean'; }, 600);
+  });
+
+  const revealed = revToks.filter(c => c !== null).length;
+  document.getElementById('r-prog').style.width = ((T - revT) / T * 100) + '%';
+  document.getElementById('r-meta').textContent = revT === 0 ? 'done — all revealed' : 't = ' + revT;
+  document.getElementById('r-count').textContent = revealed + ' / ' + N;
+
+  if (fresh.length > 0) {
+    const hist = document.getElementById('r-hist');
+    const row  = document.createElement('div'); row.className = 'hist-row';
+    const tl   = document.createElement('span'); tl.className = 'hist-t';
+    tl.textContent = 't='+(revT+1)+'→'+revT;
+    row.appendChild(tl);
+    const dl = document.createElement('span'); dl.className = 'hist-d';
+    dl.innerHTML = '+'+fresh.length+': ' +
+      fresh.map(i => '<span class="n">'+(TARGET[i]===' '?'⎵':TARGET[i])+'</span>').join('') +
+      ' <span style="color:#ddd">['+fresh.join(',')+']</span>';
+    row.appendChild(dl);
+    hist.appendChild(row); hist.scrollTop = hist.scrollHeight;
+  }
+
+  if (revT <= 0) {
+    clearInterval(autoTimer); autoRunning = false;
+    document.getElementById('btn-auto').textContent = '▶ Auto';
+  }
+}
+
+function toggleAuto() {
+  if (autoRunning) {
+    clearInterval(autoTimer); autoRunning = false;
+    document.getElementById('btn-auto').textContent = '▶ Auto';
+  } else {
+    if (revT <= 0) resetReverse();
+    autoRunning = true;
+    document.getElementById('btn-auto').textContent = '⏸ Pause';
+    autoTimer = setInterval(() => {
+      if (revT <= 0) {
+        clearInterval(autoTimer); autoRunning = false;
+        document.getElementById('btn-auto').textContent = '▶ Auto'; return;
+      }
+      stepReverse();
+    }, 350);
+  }
+}
+
+resetReverse();
+</script>
+</body>
+</html>

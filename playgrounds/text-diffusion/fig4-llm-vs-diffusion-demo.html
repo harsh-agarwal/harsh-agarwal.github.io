@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo — LLM vs Diffusion</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Georgia, serif; background: #fafafa; }
+  .figure-wrap {
+    background: #fff; border: 1px solid #e8e8e8; border-radius: 10px;
+    padding: 28px 32px 22px; max-width: 720px; margin: 0 auto;
+  }
+  .fig-title {
+    font-size: 12px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: #999; margin-bottom: 20px; text-align: center;
+  }
+  .tabs { display: flex; border-bottom: 1.5px solid #eee; margin-bottom: 20px; }
+  .tab-btn {
+    padding: 8px 18px; font-size: 13px; background: none; border: none;
+    border-bottom: 2.5px solid transparent; cursor: pointer; color: #999;
+    margin-bottom: -1.5px; transition: color .15s, border-color .15s;
+  }
+  .tab-btn.active { color: #333; border-bottom-color: #c47a2a; font-weight: 600; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .ctrl-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+  .ctrl-row input {
+    flex: 1; min-width: 160px; font-size: 13px; padding: 7px 10px; border-radius: 6px;
+    border: 1px solid #ddd; background: #fff; color: #333;
+    font-family: "SFMono-Regular", Consolas, monospace; outline: none;
+  }
+  .ctrl-row input:focus { border-color: #c47a2a; }
+  .btn {
+    padding: 6px 13px; font-size: 12px; border-radius: 6px; border: 1px solid #ddd;
+    background: #fafafa; cursor: pointer; color: #444; transition: background .15s; white-space: nowrap;
+  }
+  .btn:hover { background: #f0f0f0; }
+  .btn.go { background: #fdf3e3; border-color: #f0c97a; color: #8a6000; font-weight: 600; }
+  .btn.go:hover { background: #fce8c0; }
+  .hint { font-size: 11px; color: #bbb; margin-bottom: 10px; font-family: monospace; line-height: 1.5; }
+
+  /* ── AR: step-by-step log ── */
+  .step-log {
+    background: #fafafa; border: 1px solid #eee; border-radius: 7px;
+    padding: 10px 12px; max-height: 210px; overflow-y: auto;
+  }
+  .log-row { display: flex; align-items: flex-start; gap: 7px; padding: 3px 0; border-bottom: 1px solid #f4f4f4; }
+  .log-row:last-child { border-bottom: none; }
+  .log-lbl { min-width: 44px; font-size: 11px; color: #ccc; font-family: monospace; padding-top: 3px; }
+  .log-toks { display: flex; gap: 2px; flex-wrap: wrap; }
+  .ltok {
+    width: 15px; height: 18px; display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; border: 1px solid #eee; font-size: 11px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+  }
+  .ltok.clean   { background: #fff; color: #333; }
+  .ltok.active  { background: #f0f7ff; color: #1a5fa8; border-color: #aaccee; animation: tpop .2s; }
+  .ltok.pending { background: none; color: #e8e8e8; border-color: #f4f4f4; }
+
+  /* ── Diffusion: live grid ── */
+  .prog-wrap { height: 3px; background: #f0f0f0; border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
+  .prog-bar  { height: 100%; background: #c47a2a; border-radius: 2px; transition: width .25s; width: 0%; }
+  .grid-box {
+    background: #fafafa; border: 1px solid #eee; border-radius: 7px; padding: 14px 16px;
+  }
+  .grid-meta {
+    font-size: 11px; font-family: monospace; color: #aaa; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .t-badge {
+    background: #f5f5f5; border: 1px solid #eee; border-radius: 4px;
+    padding: 2px 8px; color: #888; font-family: monospace; font-size: 11px;
+  }
+  /* Token grid — wraps naturally for long phrases */
+  .live-row { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 10px; line-height: 1; }
+  .dtok {
+    font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; font-weight: 500;
+    width: 20px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; border: 1px solid #eee;
+    transition: background .2s, color .2s, border-color .2s;
+  }
+  .dtok.masked { background: #fdf3e3; color: #c47a2a; border-color: #f0d090; }
+  .dtok.clean  { background: #fff; color: #333; border-color: #e8e8e8; }
+  .dtok.fresh  { background: #ebf5eb; color: #2a6e2a; border-color: #a8d4a8; animation: tpop .3s; }
+  @keyframes tpop { 0%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
+  /* History — only shows steps where tokens changed */
+  .diff-history {
+    max-height: 100px; overflow-y: auto; border-top: 1px solid #f0f0f0;
+    padding-top: 8px; display: flex; flex-direction: column; gap: 3px;
+  }
+  .hist-row { display: flex; align-items: center; gap: 6px; }
+  .hist-t   { font-size: 10px; font-family: monospace; color: #ccc; min-width: 38px; }
+  .hist-d   { font-size: 11px; font-family: monospace; color: #aaa; }
+  .hist-d .hn { color: #2a6e2a; font-weight: 700; }
+
+  .final-out {
+    margin-top: 10px; padding: 8px 12px; background: #f8f8f8; border-radius: 6px;
+    font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; color: #aaa;
+    min-height: 34px; border-left: 3px solid #eee; transition: all .3s; line-height: 1.5;
+  }
+  .final-out.done { color: #333; border-left-color: #c47a2a; }
+
+  .contrast-note {
+    background: #fafafa; border: 1px solid #eee; border-radius: 7px;
+    padding: 11px 14px; font-size: 12px; color: #777; line-height: 1.65; margin-top: 16px;
+  }
+  .contrast-note strong { color: #444; }
+  .fig-caption {
+    font-size: 12px; color: #888; text-align: center; line-height: 1.6;
+    margin-top: 16px; border-top: 1px solid #f0f0f0; padding-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="figure-wrap">
+  <div class="fig-title">Interactive demo — autoregressive vs diffusion generation</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('ar')">Autoregressive (LLM)</button>
+    <button class="tab-btn" onclick="switchTab('diff')">Text diffusion</button>
+  </div>
+
+  <!-- ── AR panel ── -->
+  <div class="panel active" id="panel-ar">
+    <div class="ctrl-row">
+      <input id="ar-input" maxlength="42" value="the cat sat on the mat by the old oak tree">
+      <button class="btn go" onclick="runAR()">Generate →</button>
+      <button class="btn" onclick="resetAR()">Reset</button>
+    </div>
+    <p class="hint">Each row = one token committed, left-to-right. The token is locked in before the model sees what comes next.</p>
+    <div class="step-log" id="ar-log"></div>
+    <div class="final-out" id="ar-final"></div>
+  </div>
+
+  <!-- ── Diffusion panel ── -->
+  <div class="panel" id="panel-diff">
+    <div class="ctrl-row">
+      <input id="diff-input" maxlength="42" value="the cat sat on the mat by the old oak tree">
+      <button class="btn go" id="btn-auto" onclick="diffAutoRun()">▶ Auto-run</button>
+      <button class="btn" id="btn-step" onclick="diffStep()">Step →</button>
+      <button class="btn" onclick="resetDiff()">Reset</button>
+    </div>
+    <p class="hint">All 42 positions start masked (█). ~2–3 tokens reveal per step across all positions — not left-to-right.</p>
+
+    <div class="prog-wrap"><div class="prog-bar" id="diff-prog"></div></div>
+
+    <div class="grid-box">
+      <div class="grid-meta">
+        <span id="diff-meta">step 0 / 20 — 0 / 42 revealed</span>
+        <span class="t-badge" id="diff-t-badge">t = 20</span>
+      </div>
+      <div class="live-row" id="diff-live-row"></div>
+      <div class="diff-history" id="diff-history"></div>
+    </div>
+    <div class="final-out" id="diff-final"></div>
+  </div>
+
+  <div class="contrast-note">
+    <strong>Key difference:</strong> The LLM commits to each token left-to-right — every choice is final before the rest of the sentence exists.
+    The diffusion model sees the <em>whole sequence at once</em> and fills in 2–3 tokens per step across all positions simultaneously,
+    using whatever has already been revealed as context.
+  </div>
+  <p class="fig-caption">
+    Both panels use the same 42-character phrase. Notice that the diffusion model reveals tokens
+    scattered across all positions each step — not sequentially from the left.
+  </p>
+</div>
+
+<script>
+const T = 20;
+
+function switchTab(w) {
+  ['ar','diff'].forEach(id =>
+    document.getElementById('panel-'+id).classList.toggle('active', id===w)
+  );
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', i === (w==='ar' ? 0 : 1))
+  );
+}
+
+function padN(s, n) { return (s + ' '.repeat(n)).slice(0, n); }
+
+/* ── Autoregressive ── */
+let arRunning = false;
+function resetAR() {
+  arRunning = false;
+  document.getElementById('ar-log').innerHTML = '';
+  const f = document.getElementById('ar-final');
+  f.textContent = ''; f.classList.remove('done');
+}
+function runAR() {
+  resetAR(); arRunning = true;
+  const raw = document.getElementById('ar-input').value;
+  const N   = raw.length;
+  const val = padN(raw, N);
+  const log = document.getElementById('ar-log');
+  let i = 0;
+  function step() {
+    if (!arRunning || i > N) return;
+    const row = document.createElement('div'); row.className = 'log-row';
+    const lbl = document.createElement('span'); lbl.className = 'log-lbl';
+    lbl.textContent = i === 0 ? 'start' : 'pos '+(i-1);
+    row.appendChild(lbl);
+    const wrap = document.createElement('span'); wrap.className = 'log-toks';
+    val.split('').forEach((ch, j) => {
+      const el = document.createElement('span');
+      if      (j < i)           { el.className = 'ltok clean';   el.textContent = ch; }
+      else if (j === i && i<N)  { el.className = 'ltok active';  el.textContent = ch; }
+      else                      { el.className = 'ltok pending'; el.textContent = '·'; }
+      wrap.appendChild(el);
+    });
+    row.appendChild(wrap); log.appendChild(row);
+    log.scrollTop = log.scrollHeight;
+    if (i === N) {
+      const f = document.getElementById('ar-final');
+      f.textContent = '→ "' + val.trimEnd() + '"'; f.classList.add('done');
+    }
+    i++;
+    setTimeout(step, 80);
+  }
+  step();
+}
+
+/* ── Diffusion ── */
+let diffT, diffToks, diffTarget, diffN, autoTimer, isRunning;
+
+function resetDiff() {
+  clearInterval(autoTimer); isRunning = false;
+  document.getElementById('btn-auto').textContent = '▶ Auto-run';
+  const raw  = document.getElementById('diff-input').value;
+  diffN      = raw.length;
+  diffTarget = padN(raw, diffN);
+  diffT      = T;
+  diffToks   = Array(diffN).fill(null);
+
+  document.getElementById('diff-prog').style.width = '0%';
+  document.getElementById('diff-t-badge').textContent = 't = ' + T;
+  document.getElementById('diff-meta').textContent = 'step 0 / '+T+' — 0 / '+diffN+' revealed';
+  document.getElementById('diff-history').innerHTML = '';
+  const f = document.getElementById('diff-final');
+  f.textContent = ''; f.classList.remove('done');
+  buildGrid();
+}
+
+function buildGrid() {
+  const row = document.getElementById('diff-live-row');
+  row.innerHTML = '';
+  for (let i = 0; i < diffN; i++) {
+    const el = document.createElement('span');
+    el.className = 'dtok masked';
+    el.textContent = '█';
+    el.id = 'dtok-' + i;
+    row.appendChild(el);
+  }
+}
+
+function diffStep() {
+  if (diffT <= 0) return;
+  const rate  = 1.0 / diffT;
+  const fresh = [];
+  for (let i = 0; i < diffN; i++) {
+    if (diffToks[i] === null && Math.random() < rate) {
+      diffToks[i] = diffTarget[i];
+      fresh.push(i);
+    }
+  }
+  const stepNum = T - diffT + 1;
+  diffT--;
+
+  // Animate newly revealed tokens in the live grid
+  fresh.forEach(i => {
+    const el = document.getElementById('dtok-' + i);
+    if (!el) return;
+    el.className = 'dtok fresh';
+    el.textContent = diffToks[i] === ' ' ? '\u00b7' : diffToks[i];
+    setTimeout(() => {
+      el.className = 'dtok clean';
+      el.textContent = diffToks[i] === ' ' ? '\u00b7' : diffToks[i];
+    }, 700);
+  });
+
+  const revealed = diffToks.filter(c => c !== null).length;
+  document.getElementById('diff-prog').style.width = ((T - diffT) / T * 100) + '%';
+  document.getElementById('diff-t-badge').textContent = 't = ' + diffT;
+  document.getElementById('diff-meta').textContent =
+    'step ' + stepNum + ' / ' + T + ' — ' + revealed + ' / ' + diffN + ' revealed';
+
+  // History: only when something revealed
+  if (fresh.length > 0) {
+    const hist = document.getElementById('diff-history');
+    const hr = document.createElement('div'); hr.className = 'hist-row';
+    const hl = document.createElement('span'); hl.className = 'hist-t';
+    hl.textContent = 't=' + (diffT+1) + '→' + diffT;
+    hr.appendChild(hl);
+    const hd = document.createElement('span'); hd.className = 'hist-d';
+    hd.innerHTML = '+' + fresh.length + ' revealed: ' +
+      fresh.map(i => {
+        const ch = diffTarget[i];
+        return '<span class="hn">' + (ch === ' ' ? '⎵' : ch) + '</span>';
+      }).join('') +
+      ' <span style="color:#ddd">[' + fresh.join(',') + ']</span>';
+    hr.appendChild(hd);
+    hist.appendChild(hr);
+    hist.scrollTop = hist.scrollHeight;
+  }
+
+  // Check completion
+  if (diffT <= 0 || diffToks.every(c => c !== null)) {
+    // Force-fill any stragglers (shouldn't happen at t=1 but safety net)
+    diffToks.forEach((c, i) => {
+      if (c === null) {
+        diffToks[i] = diffTarget[i];
+        const el = document.getElementById('dtok-' + i);
+        if (el) { el.className = 'dtok fresh'; el.textContent = diffTarget[i] === ' ' ? '·' : diffTarget[i]; }
+      }
+    });
+    const f = document.getElementById('diff-final');
+    f.textContent = '→ "' + diffToks.join('').trimEnd() + '"';
+    f.classList.add('done');
+    diffT = 0;
+    clearInterval(autoTimer); isRunning = false;
+    document.getElementById('btn-auto').textContent = '▶ Auto-run';
+  }
+}
+
+function diffAutoRun() {
+  if (isRunning) {
+    clearInterval(autoTimer); isRunning = false;
+    document.getElementById('btn-auto').textContent = '▶ Auto-run';
+  } else {
+    if (diffT <= 0) resetDiff();
+    isRunning = true;
+    document.getElementById('btn-auto').textContent = '⏸ Pause';
+    autoTimer = setInterval(() => {
+      if (diffT <= 0) {
+        clearInterval(autoTimer); isRunning = false;
+        document.getElementById('btn-auto').textContent = '▶ Auto-run';
+        return;
+      }
+      diffStep();
+    }, 350);
+  }
+}
+
+resetAR();
+resetDiff();
+</script>
+</body>
+</html>
