@@ -81,7 +81,15 @@ The sequential nature creates three concrete limits:
 
 Image diffusion defines noise as Gaussian perturbation: add random continuous values to pixel intensities until the image is pure static, then train a network to reverse the process. Text can't work this way. Token IDs are discrete integers; there is no sensible notion of adding 0.3 to the token "cat."
 
-The natural analog is **masking**: replace tokens with a special `[MASK]` symbol. At full noise, every token is masked. At zero noise, the text is clean. The model's job is to fill in the blanks, using context from every other position simultaneously.
+The key difference runs deeper than just the type of noise. In standard image diffusion, the model predicts **the noise that was added** (a continuous correction vector), then subtracts it to get a cleaner signal. That operation only makes sense in continuous space. In text diffusion, the model instead predicts **what each masked token should be** — a probability distribution over the vocabulary at every masked position. There is no subtraction; tokens are either revealed or they stay masked.
+
+<iframe src="/playgrounds/text-diffusion/fig5-diffusion-types.html"
+        class="fig-iframe" scrolling="no"
+        onload="this.style.height=(this.contentWindow.document.body.scrollHeight+2)+'px'"
+        title="Figure: continuous vs discrete diffusion — what the model predicts"></iframe>
+<p class="fig-note">Left: image diffusion estimates the noise vector ε̂ and subtracts it (a correction in continuous space). Right: text diffusion estimates a probability distribution over clean tokens and reveals the highest-confidence ones. Same intuition, fundamentally different objective.</p>
+
+The natural analog for text noise is **masking**: replace tokens with a special `[MASK]` symbol. At full noise, every token is masked. At zero noise, the text is clean. The model's job is to fill in the blanks, using context from every other position simultaneously.
 
 <iframe src="/playgrounds/text-diffusion/fig1-forward-process.html"
         class="fig-iframe" scrolling="no"
