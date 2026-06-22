@@ -2,9 +2,11 @@
 layout: playground-post
 title: "From Next-Token Prediction to Iterative Unmasking: A Visual Guide to Text Diffusion"
 date: 2026-06-22
-description: "Why text diffusion is a genuinely different way to think about language generation — and how ~200 lines of PyTorch can show you the entire idea."
+description: "Why text diffusion is a genuinely different way to think about language generation, and how 200 lines of PyTorch can show you the entire idea."
 tags: [diffusion, nlp, pytorch, language-models]
 ---
+
+GPT writes left to right, one token at a time, no going back. Gemma Diffusion starts from a fully masked canvas and thinks its way to fluency all at once. Same transformer backbone, completely different bet about what generation should look like. This post visualizes every step of the idea, grounded in a 200-line PyTorch implementation you can run yourself.
 
 <style>
 .fig-note {
@@ -20,12 +22,7 @@ tags: [diffusion, nlp, pytorch, language-models]
   width: 100%;
   display: block;
   margin: 1.5rem 0 0.5rem;
-}
-.code-caption {
-  font-size: 12px;
-  color: #999;
-  margin: -8px 0 20px;
-  font-family: "SFMono-Regular", Consolas, monospace;
+  overflow: hidden;
 }
 .comparison-table {
   width: 100%;
@@ -58,10 +55,6 @@ blockquote {
 }
 </style>
 
-Training a large model isn't hard because the math is complicated. It's hard because the paradigm is different. Large language models — GPT, Claude, Llama — generate text one token at a time, left to right. Text diffusion models generate text all at once, in parallel, by learning to reverse a corruption process. The two approaches share the same transformer backbone but make fundamentally different bets about what generation should look like.
-
-This post walks through that difference from the ground up, using a toy implementation in ~200 lines of pure PyTorch that captures the three core ideas: a forward masking process, a denoising training objective, and an iterative reverse sampler.
-
 ---
 
 ## 1. How language models generate text today
@@ -71,9 +64,10 @@ Modern LLMs are **autoregressive** models. They generate text one token at a tim
 This works extraordinarily well. But the sequential commitment bakes in structural constraints worth understanding.
 
 <iframe src="/playgrounds/text-diffusion/fig4-llm-vs-diffusion-demo.html"
-        class="fig-iframe" height="560"
+        class="fig-iframe" scrolling="no"
+        onload="this.style.height=(this.contentWindow.document.body.scrollHeight+2)+'px'"
         title="Interactive demo: autoregressive vs diffusion generation"></iframe>
-<p class="fig-note">Try the <strong>Autoregressive</strong> tab. Each row locks in a token permanently — the model commits to every choice without knowing what comes next. Then switch to <strong>Text diffusion</strong> to see all positions fill in parallel.</p>
+<p class="fig-note">Try the <strong>Autoregressive</strong> tab. Each row locks in a token permanently; the model commits to every choice without knowing what comes next. Then switch to <strong>Text diffusion</strong> to see all positions fill in parallel.</p>
 
 The sequential nature creates three concrete limits:
 
@@ -85,14 +79,15 @@ The sequential nature creates three concrete limits:
 
 ## 2. What does "noise" mean for discrete tokens?
 
-Image diffusion defines noise as Gaussian perturbation — you add random continuous values to pixel intensities until the image is pure static, then train a network to reverse the process. Text can't work this way. Token IDs are discrete integers; there is no sensible notion of adding 0.3 to the token "cat."
+Image diffusion defines noise as Gaussian perturbation: add random continuous values to pixel intensities until the image is pure static, then train a network to reverse the process. Text can't work this way. Token IDs are discrete integers; there is no sensible notion of adding 0.3 to the token "cat."
 
-The natural analog is **masking**: replace tokens with a special `[MASK]` symbol. At full noise, every token is masked. At zero noise, the text is clean. The model's job is to fill in the blanks — using context from every other position simultaneously.
+The natural analog is **masking**: replace tokens with a special `[MASK]` symbol. At full noise, every token is masked. At zero noise, the text is clean. The model's job is to fill in the blanks, using context from every other position simultaneously.
 
 <iframe src="/playgrounds/text-diffusion/fig1-forward-process.html"
-        class="fig-iframe" height="270"
+        class="fig-iframe" scrolling="no"
+        onload="this.style.height=(this.contentWindow.document.body.scrollHeight+2)+'px'"
         title="Figure 1: forward process noise slider"></iframe>
-<p class="fig-note">Drag the slider. Each position masks independently with probability t/T — so you can jump to any noise level in a single step, without simulating all steps in between. This independence is what makes training efficient.</p>
+<p class="fig-note">Drag the slider. Each position masks independently with probability t/T, so you can jump to any noise level in a single step without simulating all steps in between. This independence is what makes training efficient.</p>
 
 The forward process is:
 
@@ -118,9 +113,10 @@ A linear schedule: at `t=0`, no masking; at `t=T`, every token is `[MASK]`. Each
 The denoising model takes a partially-masked sequence and predicts the original tokens at every position simultaneously. To do this well it needs to know three things: what token is currently at each position, where in the sequence that position is, and how much corruption was applied.
 
 <iframe src="/playgrounds/text-diffusion/fig2-architecture.html"
-        class="fig-iframe" height="380"
+        class="fig-iframe" scrolling="no"
+        onload="this.style.height=(this.contentWindow.document.body.scrollHeight+2)+'px'"
         title="Figure 2: model architecture diagram"></iframe>
-<p class="fig-note">Hover over each component for details. The key structural choice is the bidirectional transformer — no causal mask means every position can attend to every other position, in both directions.</p>
+<p class="fig-note">Hover over each component for details. The key structural choice is the bidirectional transformer: no causal mask means every position can attend to every other position, in both directions.</p>
 
 ```python
 class DenoisingTransformer(nn.Module):
@@ -186,9 +182,10 @@ Crucially, `t` is sampled uniformly across all noise levels. The model trains eq
 At inference time, we start from a fully-masked sequence and iteratively reveal tokens over `T` steps. The clever part is the reveal rate: at step `t`, we reveal a fraction `1/t` of the still-masked positions.
 
 <iframe src="/playgrounds/text-diffusion/fig3-reverse-process.html"
-        class="fig-iframe" height="400"
+        class="fig-iframe" scrolling="no"
+        onload="this.style.height=(this.contentWindow.document.body.scrollHeight+2)+'px'"
         title="Figure 3: reverse process and reveal schedule"></iframe>
-<p class="fig-note">Left: the expected mask fraction tracks (t−1)/T — the exact inverse of the forward schedule. Right: click <strong>Step</strong> to walk through a generation. Green tokens are newly revealed at each step; they become context anchors for subsequent steps.</p>
+<p class="fig-note">Left: the expected mask fraction tracks (t-1)/T, the exact inverse of the forward schedule. Right: click <strong>Step</strong> to walk through a generation. Green tokens are newly revealed at each step; they become context anchors for subsequent steps.</p>
 
 ```python
 @torch.no_grad()
@@ -209,9 +206,9 @@ def sample(model, n=4):
     return [decode(x[j].tolist()) for j in range(n)]
 ```
 
-Why `1/t` works: at `t=T` (the first step), reveal 1/20 = 5% — just one or two high-confidence tokens. At `t=10`, reveal 1/10 = 10% of what remains. At `t=1` (the final step), reveal 100% — fill everything still masked. The expected mask fraction after step `t` is exactly `(t−1)/T`, tracking the forward process in reverse.
+Why `1/t` works: at `t=T` (the first step), reveal 1/20 = 5%, just one or two high-confidence tokens. At `t=10`, reveal 1/10 = 10% of what remains. At `t=1` (the final step), reveal 100%, filling everything still masked. The expected mask fraction after step `t` is exactly `(t-1)/T`, tracking the forward process in reverse.
 
-Once a token is revealed, it stays. This creates a natural curriculum: high-confidence, strongly-determined tokens are revealed early and become context anchors. The harder, ambiguous positions get filled later, using all those anchors as evidence.
+Once a token is revealed, it stays. This creates a natural curriculum: high-confidence tokens are revealed early and become context anchors. The harder, ambiguous positions get filled later, using all those anchors as evidence.
 
 ---
 
@@ -219,13 +216,13 @@ Once a token is revealed, it stays. This creates a natural curriculum: high-conf
 
 Running the toy script on its eight-sentence corpus surfaces cleanly instructive behaviors.
 
-**It memorizes the corpus — intentionally.** With only eight training sentences and 4000 steps, the model converges to near-perfect reconstruction. This is the point: we want to confirm that the reverse process faithfully recovers known strings. Memorization here is signal, not overfit.
+**It memorizes the corpus, intentionally.** With only eight training sentences and 4000 steps, the model converges to near-perfect reconstruction. This is the point: we want to confirm that the reverse process faithfully recovers known strings. Memorization here is signal, not overfit.
 
 **Short common tokens anchor first.** Watching the generation trace, you reliably see spaces and common short words revealed in the first few denoising steps. The model is most confident about these because they appear in almost every training sentence and are unambiguous in context.
 
 **The timestep embedding does real work.** Ablating the timestep embedding (removing `self.t_emb`) causes slower convergence and noisier generated sequences. The model genuinely uses the noise level to calibrate its output distributions. At `t=1`, it should output nearly one-hot distributions; at `t=19`, broader distributions encoding genuine uncertainty.
 
-**Loss on all positions matters.** The training objective doesn't mask the loss for visible tokens — it computes cross-entropy at every position. The visible tokens are easy and converge quickly, but that easy signal provides clean gradients that help the harder masked positions learn faster. Masking the loss to only masked positions makes training noticeably less stable.
+**Loss on all positions matters.** The training objective doesn't mask the loss for visible tokens: it computes cross-entropy at every position. The visible tokens are easy and converge quickly, but that easy signal provides clean gradients that help the harder masked positions learn faster. Masking the loss to only masked positions makes training noticeably less stable.
 
 ---
 
@@ -239,31 +236,31 @@ Running the toy script on its eight-sentence corpus surfaces cleanly instructive
 <tr><td>"Noise"</td><td>N/A</td><td>Random token masking</td></tr>
 <tr><td>Generation order</td><td>Left-to-right, fixed</td><td>Confidence-first, global</td></tr>
 <tr><td>Attention</td><td>Causal (looks left only)</td><td>Bidirectional (global context)</td></tr>
-<tr><td>Revision</td><td>None — tokens are final</td><td>Later steps use global context</td></tr>
+<tr><td>Revision</td><td>None; tokens are final</td><td>Later steps use global context</td></tr>
 <tr><td>Parallelism</td><td>Inherently sequential</td><td>All positions updated per step</td></tr>
 <tr><td>Training signal</td><td>Next-token prediction</td><td>Clean-token prediction at any noise level</td></tr>
 <tr><td>Inference steps</td><td>One per token (linear in length)</td><td>Fixed T steps (independent of length)</td></tr>
-<tr><td>Real-world examples</td><td>GPT-4, Claude, Llama</td><td>MDLM, SEDD, Plaid</td></tr>
+<tr><td>Real-world examples</td><td>GPT-4, Claude, Llama</td><td>MDLM, SEDD, Gemma Diffusion</td></tr>
 </tbody>
 </table>
 
-The comparison isn't a winner/loser — it's a different set of tradeoffs. Autoregressive models benefit from decades of optimization, fast KV-cache inference, and an extremely stable training objective. Text diffusion offers bidirectional context at generation time, a natural refinement loop, and inference time that doesn't scale with sequence length.
+This isn't a winner vs. loser comparison. It's a different set of tradeoffs. Autoregressive models benefit from decades of optimization, fast KV-cache inference, and an extremely stable training objective. Text diffusion offers bidirectional context at generation time, a natural refinement loop, and inference time that doesn't scale with sequence length.
 
 ---
 
 ## 8. From 200 lines to production systems
 
-This toy script is a conceptual skeleton. Real text diffusion models — MDLM, SEDD, Plaid — build on exactly the same three ideas but add the engineering needed for quality at scale:
+This toy script is a conceptual skeleton. Real text diffusion models (MDLM, SEDD, Gemma Diffusion) build on exactly the same three ideas but add the engineering needed for quality at scale:
 
 - **Much larger vocabularies.** Real systems use 50k+ BPE tokens rather than 27 characters. The masking logic is identical; the vocabulary just grows.
 - **More principled noise beyond masking.** Absorbing-state diffusion and uniform noise (replacing masked tokens with random tokens rather than a fixed mask) can improve training signal.
 - **Learned or cosine noise schedules.** The linear schedule here is the simplest option. Cosine schedules spend more training time in the intermediate noise levels where the learning signal is richest.
 - **Analytic unmasking probabilities.** Rather than sampling from the model's softmax and using a Bernoulli reveal gate, production systems derive exact posterior probabilities for each token being its clean value given the noisy input.
-- **Classifier-free guidance.** The same conditioning mechanism used in image diffusion — running the model twice, once conditioned and once not, and interpolating the outputs — applies directly to text diffusion for controlled generation.
+- **Classifier-free guidance.** The same conditioning mechanism used in image diffusion (running the model twice, once conditioned and once not, then interpolating the outputs) applies directly to text diffusion for controlled generation.
 
-The loop in `train()` and the reveal logic in `sample()` are directly recognizable in MDLM's codebase. The abstraction gap between this toy and a state-of-the-art system is mostly engineering, not conceptual — which is exactly why building it from scratch is so instructive.
+The loop in `train()` and the reveal logic in `sample()` are directly recognizable in MDLM's codebase. The abstraction gap between this toy and a state-of-the-art system is mostly engineering, not conceptual, which is exactly why building it from scratch is so instructive.
 
-> The most important thing the script demonstrates is that generation doesn't have to be directional. Text has structure in all directions simultaneously — and a model that sees and refines the full sequence at every step may be better positioned to exploit that structure than one that can only look left.
+> The most important thing the script demonstrates is that generation doesn't have to be directional. Text has structure in all directions simultaneously, and a model that sees and refines the full sequence at every step may be better positioned to exploit that structure than one that can only look left.
 
 ---
 
@@ -359,4 +356,4 @@ if __name__ == "__main__":
 
 ---
 
-*Further reading: [MDLM: Simplified and Improved Masked Diffusion for Discrete Data](https://arxiv.org/abs/2406.07524) · [SEDD: Score Entropy Discrete Diffusion](https://arxiv.org/abs/2310.16834) · [Plaid: An Open Source Tool for LLM and Diffusion Model Benchmarking](https://arxiv.org/abs/2302.10094)*
+*Further reading: [MDLM: Simplified and Improved Masked Diffusion for Discrete Data](https://arxiv.org/abs/2406.07524) · [SEDD: Score Entropy Discrete Diffusion](https://arxiv.org/abs/2310.16834) · [Gemma Diffusion](https://arxiv.org/abs/2506.07539)*
