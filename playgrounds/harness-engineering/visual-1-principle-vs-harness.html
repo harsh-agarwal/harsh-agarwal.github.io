@@ -208,13 +208,19 @@ body { background: var(--bg); font-family: var(--ui); -webkit-font-smoothing: an
           </marker>
         </defs>
 
-        <!-- Stator outer ring -->
+        <!-- N-pole magnet fill (drawn first, under ring stroke) -->
+        <rect x="58" y="148" width="70" height="74" rx="6"
+              fill="#c2d8f0" opacity="0.75" stroke="none"/>
+
+        <!-- S-pole magnet fill (drawn first, under ring stroke) -->
+        <rect x="352" y="148" width="70" height="74" rx="6"
+              fill="#f0c8b8" opacity="0.75" stroke="none"/>
+
+        <!-- Stator outer ring — drawn after fills so stroke stays visible -->
         <circle cx="240" cy="195" r="148"
                 fill="none" stroke="#111" stroke-width="2.2"/>
 
-        <!-- N-pole magnet (left) -->
-        <rect x="58" y="148" width="70" height="74" rx="6"
-              fill="#c2d8f0" opacity="0.75" stroke="none"/>
+        <!-- N-pole magnet border + labels (on top of ring) -->
         <rect x="58" y="148" width="70" height="74" rx="6"
               fill="none" stroke="#1a4d99" stroke-width="2.2"/>
         <text x="93" y="179" font-family="'Caveat',cursive" font-size="30" font-weight="700"
@@ -222,9 +228,7 @@ body { background: var(--bg); font-family: var(--ui); -webkit-font-smoothing: an
         <text x="93" y="204" font-family="'Caveat',cursive" font-size="14"
               fill="#1a4d99" text-anchor="middle">pole</text>
 
-        <!-- S-pole magnet (right) -->
-        <rect x="352" y="148" width="70" height="74" rx="6"
-              fill="#f0c8b8" opacity="0.75" stroke="none"/>
+        <!-- S-pole magnet border + labels (on top of ring) -->
         <rect x="352" y="148" width="70" height="74" rx="6"
               fill="none" stroke="#993322" stroke-width="2.2"/>
         <text x="387" y="179" font-family="'Caveat',cursive" font-size="30" font-weight="700"
