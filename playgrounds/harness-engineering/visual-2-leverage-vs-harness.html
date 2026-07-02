@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leverage vs Harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #111; --ink2: #444; --ink3: #888;
+  --bg: #fff;
+  --hl: #f5c842; --hl-b: #c2d8f0; --hl-g: #c2e8cc; --hl-r: #f0c8b8;
+  --sketch: 'Caveat', cursive; --ui: 'Inter', system-ui, sans-serif;
+}
+body { background: var(--bg); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+
+.card {
+  max-width: 760px; margin: 0 auto;
+  padding: 28px 28px 20px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+}
+.eyebrow {
+  font-family: var(--sketch); font-size: 13px; color: var(--ink3);
+  letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px;
+}
+.card-title {
+  font-family: var(--sketch); font-size: 26px; font-weight: 700;
+  color: var(--ink); margin-bottom: 20px;
+  border-bottom: 2px solid var(--ink); padding-bottom: 10px;
+}
+.step { display: none; }
+.step.active { display: block; }
+.step-heading {
+  font-family: var(--sketch); font-size: 20px; font-weight: 600;
+  color: var(--ink2); margin-bottom: 14px;
+}
+.diagram { width: 100%; }
+.diagram svg { display: block; width: 100%; height: auto; overflow: visible; }
+.note {
+  font-family: var(--sketch); font-size: 17px; color: var(--ink2);
+  line-height: 1.65; margin-top: 14px;
+  border-left: 3px dashed var(--ink3);
+  padding: 6px 0 6px 14px;
+}
+.nav {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1.5px dashed var(--ink3);
+}
+.nav-btn {
+  font-family: var(--sketch); font-size: 18px;
+  background: none; border: 2px solid var(--ink);
+  border-radius: 5px; padding: 4px 20px;
+  cursor: pointer; color: var(--ink);
+  transition: background .15s, color .15s;
+}
+.nav-btn:hover:not(:disabled) { background: var(--ink); color: #fff; }
+.nav-btn:disabled { opacity: 0.22; cursor: default; }
+.nav-counter { font-family: var(--sketch); font-size: 17px; color: var(--ink3); flex: 1; text-align: center; }
+.pips { display: flex; gap: 8px; }
+.pip { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--ink3); background: none; cursor: pointer; }
+.pip.on { background: var(--ink); border-color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="eyebrow">Harness Engineering — Visual 2 of 3</p>
+  <p class="card-title">Leverage vs. Harness — Two Different Ideas</p>
+
+  <!-- ── Step 1: Leverage (the lever) ── -->
+  <div class="step active" id="s1">
+    <p class="step-heading">Step 1 — Leverage: amplification of effort</p>
+    <div class="diagram">
+      <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#111"/>
+          </marker>
+        </defs>
+
+        <!-- Yellow highlighter wash under the key idea -->
+        <rect x="188" y="106" width="118" height="40" rx="4"
+              fill="#f5c842" opacity="0.5" stroke="none"/>
+
+        <!-- Lever beam -->
+        <line x1="40" y1="200" x2="660" y2="200"
+              stroke="#111" stroke-width="3" stroke-linecap="round"/>
+
+        <!-- Fulcrum at ~65% from left (x=490) -->
+        <polygon points="490,200 465,242 515,242"
+                 fill="#ddd" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="458" y1="242" x2="522" y2="242"
+              stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
+        <text x="490" y="262" font-family="'Caveat',cursive" font-size="17"
+              fill="#888" text-anchor="middle">fulcrum</text>
+
+        <!-- Small effort arrow (long arm, left) -->
+        <line x1="100" y1="200" x2="100" y2="128"
+              stroke="#111" stroke-width="2.5" stroke-linecap="round" marker-end="url(#a1)"/>
+        <text x="100" y="118" font-family="'Caveat',cursive" font-size="18" font-weight="600"
+              fill="#444" text-anchor="middle">small</text>
+        <text x="100" y="138" font-family="'Caveat',cursive" font-size="16"
+              fill="#888" text-anchor="middle">effort</text>
+
+        <!-- Big output arrow (short arm, right) -->
+        <line x1="600" y1="200" x2="600" y2="82"
+              stroke="#111" stroke-width="5" stroke-linecap="round" marker-end="url(#a1)"/>
+        <text x="600" y="68" font-family="'Caveat',cursive" font-size="22" font-weight="700"
+              fill="#111" text-anchor="middle">BIG output</text>
+
+        <!-- Arm labels -->
+        <line x1="100" y1="210" x2="488" y2="210"
+              stroke="#888" stroke-width="1" stroke-dasharray="5 4"/>
+        <text x="294" y="228" font-family="'Caveat',cursive" font-size="14"
+              fill="#888" text-anchor="middle">long arm</text>
+        <line x1="492" y1="210" x2="600" y2="210"
+              stroke="#888" stroke-width="1" stroke-dasharray="5 4"/>
+        <text x="546" y="228" font-family="'Caveat',cursive" font-size="14"
+              fill="#888" text-anchor="middle">short arm</text>
+
+        <!-- Mechanical advantage badge -->
+        <rect x="190" y="108" width="114" height="36" rx="20"
+              fill="#f5c842" opacity="0.6" stroke="#111" stroke-width="1.8"/>
+        <text x="247" y="131" font-family="'Caveat',cursive" font-size="17" font-weight="700"
+              fill="#111" text-anchor="middle">× force</text>
+
+        <!-- Key insight box -->
+        <rect x="40" y="272" width="620" height="24" rx="4"
+              fill="none" stroke="none"/>
+        <text x="350" y="288" font-family="'Caveat',cursive" font-size="16"
+              fill="#888" text-anchor="middle">Leverage asks:  how much?  — but not:  in which direction?</text>
+      </svg>
+    </div>
+    <p class="note">A lever amplifies force through mechanical advantage. It doesn't care about direction — it pushes whatever is at the short end, with multiplied force. Archimedes said "give me a lever long enough and I can move the world." He didn't say where.</p>
+  </div>
+
+  <!-- ── Step 2: Harness (horse + cart) ── -->
+  <div class="step" id="s2">
+    <p class="step-heading">Step 2 — Harness: direction and constraint</p>
+    <div class="diagram">
+      <svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#1a6633"/>
+          </marker>
+        </defs>
+
+        <!-- Ground line -->
+        <line x1="40" y1="240" x2="660" y2="240"
+              stroke="#ddd" stroke-width="1.5"/>
+
+        <!-- Horse body -->
+        <ellipse cx="160" cy="190" rx="90" ry="44"
+                 fill="#f5f5f2" stroke="#111" stroke-width="2.2"/>
+        <text x="160" y="194" font-family="'Caveat',cursive" font-size="22" font-weight="700"
+              fill="#111" text-anchor="middle">horse</text>
+        <text x="160" y="216" font-family="'Caveat',cursive" font-size="14"
+              fill="#888" text-anchor="middle">raw power</text>
+        <!-- Legs -->
+        <line x1="120" y1="232" x2="112" y2="244" stroke="#111" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="145" y1="233" x2="140" y2="244" stroke="#111" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="175" y1="233" x2="178" y2="244" stroke="#111" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="200" y1="232" x2="207" y2="244" stroke="#111" stroke-width="2.2" stroke-linecap="round"/>
+
+        <!-- Collar (harness at neck) -->
+        <ellipse cx="240" cy="185" rx="18" ry="30"
+                 fill="#f5c842" opacity="0.55" stroke="#111" stroke-width="2.2"/>
+        <text x="240" y="152" font-family="'Caveat',cursive" font-size="14"
+              fill="#888" text-anchor="middle">collar</text>
+        <line x1="240" y1="158" x2="240" y2="157" stroke="#888" stroke-width="1" stroke-dasharray="3 3"/>
+
+        <!-- Traces (two parallel lines — highlighted) -->
+        <rect x="255" y="176" width="140" height="28" rx="4"
+              fill="#f5c842" opacity="0.35" stroke="none"/>
+        <line x1="255" y1="180" x2="396" y2="180"
+              stroke="#111" stroke-width="3" stroke-linecap="round"/>
+        <line x1="255" y1="200" x2="396" y2="200"
+              stroke="#111" stroke-width="3" stroke-linecap="round"/>
+        <text x="326" y="170" font-family="'Caveat',cursive" font-size="16" font-weight="700"
+              fill="#111" text-anchor="middle">traces</text>
+        <text x="326" y="218" font-family="'Caveat',cursive" font-size="13"
+              fill="#888" text-anchor="middle">the harness — direction + constraint</text>
+
+        <!-- Cart -->
+        <rect x="396" y="152" width="140" height="88" rx="6"
+              fill="#f5f5f2" stroke="#111" stroke-width="2.2"/>
+        <!-- Wheels -->
+        <circle cx="420" cy="244" r="20" fill="#fff" stroke="#111" stroke-width="2.2"/>
+        <circle cx="514" cy="244" r="20" fill="#fff" stroke="#111" stroke-width="2.2"/>
+        <!-- Spokes -->
+        <line x1="420" y1="224" x2="420" y2="244" stroke="#111" stroke-width="1.2"/>
+        <line x1="400" y1="244" x2="440" y2="244" stroke="#111" stroke-width="1.2"/>
+        <line x1="514" y1="224" x2="514" y2="244" stroke="#111" stroke-width="1.2"/>
+        <line x1="494" y1="244" x2="534" y2="244" stroke="#111" stroke-width="1.2"/>
+        <text x="466" y="204" font-family="'Caveat',cursive" font-size="20" font-weight="700"
+              fill="#111" text-anchor="middle">cart</text>
+
+        <!-- Directed output arrow -->
+        <line x1="538" y1="196" x2="640" y2="196"
+              stroke="#1a6633" stroke-width="4" stroke-linecap="round"
+              marker-end="url(#a2)"/>
+        <text x="590" y="182" font-family="'Caveat',cursive" font-size="16" font-weight="700"
+              fill="#1a6633" text-anchor="middle">directed output</text>
+        <text x="590" y="215" font-family="'Caveat',cursive" font-size="13"
+              fill="#888" text-anchor="middle">one direction, controlled</text>
+
+        <!-- Key insight -->
+        <text x="350" y="285" font-family="'Caveat',cursive" font-size="16"
+              fill="#888" text-anchor="middle">Harness asks:  in which direction?  under what rules?  when do we stop?</text>
+      </svg>
+    </div>
+    <p class="note">A harness doesn't make the horse stronger. It ensures the horse's strength moves the cart in the intended direction, at a controllable pace, with the ability to stop. The power is unchanged — the direction and constraint are everything.</p>
+  </div>
+
+  <!-- ── Step 3: The contrast ── -->
+  <div class="step" id="s3">
+    <p class="step-heading">Step 3 — The contrast made explicit</p>
+    <div class="diagram">
+      <svg viewBox="0 0 700 290" xmlns="http://www.w3.org/2000/svg">
+
+        <!-- Left: Leverage column -->
+        <rect x="30" y="30" width="290" height="226" rx="8"
+              fill="#fafafa" stroke="#111" stroke-width="2.2"/>
+        <text x="175" y="58" font-family="'Caveat',cursive" font-size="22" font-weight="700"
+              fill="#111" text-anchor="middle">Leverage</text>
+        <line x1="44" y1="68" x2="306" y2="68" stroke="#111" stroke-width="1.5"/>
+
+        <text x="54" y="96" font-family="'Caveat',cursive" font-size="17" fill="#444">What it does:</text>
+        <text x="54" y="116" font-family="'Caveat',cursive" font-size="16" fill="#888">amplifies effort</text>
+
+        <text x="54" y="146" font-family="'Caveat',cursive" font-size="17" fill="#444">Answers:</text>
+        <rect x="54" y="153" width="100" height="28" rx="4"
+              fill="#f5c842" opacity="0.5" stroke="none"/>
+        <text x="54" y="172" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#111">how much?</text>
+
+        <text x="54" y="205" font-family="'Caveat',cursive" font-size="17" fill="#444">What it doesn't say:</text>
+        <text x="54" y="224" font-family="'Caveat',cursive" font-size="15" fill="#888">direction, goal, or stop</text>
+        <text x="54" y="241" font-family="'Caveat',cursify" font-size="15" fill="#888">condition</text>
+
+        <!-- Right: Harness column -->
+        <rect x="380" y="30" width="290" height="226" rx="8"
+              fill="#fafafa" stroke="#111" stroke-width="2.2"/>
+        <text x="525" y="58" font-family="'Caveat',cursive" font-size="22" font-weight="700"
+              fill="#111" text-anchor="middle">Harness</text>
+        <line x1="394" y1="68" x2="656" y2="68" stroke="#111" stroke-width="1.5"/>
+
+        <text x="400" y="96" font-family="'Caveat',cursive" font-size="17" fill="#444">What it does:</text>
+        <text x="400" y="116" font-family="'Caveat',cursive" font-size="16" fill="#888">directs capability</text>
+
+        <text x="400" y="146" font-family="'Caveat',cursive" font-size="17" fill="#444">Answers:</text>
+        <rect x="400" y="153" width="168" height="28" rx="4"
+              fill="#c2e8cc" opacity="0.7" stroke="none"/>
+        <text x="400" y="172" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#111">in which direction?</text>
+
+        <text x="400" y="205" font-family="'Caveat',cursive" font-size="17" fill="#444">What it doesn't do:</text>
+        <text x="400" y="224" font-family="'Caveat',cursive" font-size="15" fill="#888">amplify (power unchanged)</text>
+
+        <!-- VS badge in the middle -->
+        <circle cx="350" cy="143" r="26" fill="#fff" stroke="#111" stroke-width="2"/>
+        <text x="350" y="151" font-family="'Caveat',cursive" font-size="20" font-weight="700"
+              fill="#111" text-anchor="middle">vs</text>
+
+        <!-- Bottom synthesis -->
+        <rect x="30" y="268" width="640" height="18" rx="3" fill="none"/>
+        <text x="350" y="282" font-family="'Caveat',cursive" font-size="15"
+              fill="#888" text-anchor="middle">Leverage is a property you observe. Harness is a discipline you build.</text>
+      </svg>
+    </div>
+    <p class="note">This is why "harness engineering" is the emerging discipline name rather than "leverage engineering." Leverage describes what you get. Harness describes what you build. One is passive observation; the other is active engineering.</p>
+  </div>
+
+  <!-- ── Step 4: In ML ── -->
+  <div class="step" id="s4">
+    <p class="step-heading">Step 4 — Both concepts in a language model agent</p>
+    <div class="diagram">
+      <svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="a4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#111"/>
+          </marker>
+        </defs>
+
+        <!-- Flow row -->
+        <!-- Input -->
+        <rect x="20" y="80" width="108" height="70" rx="7"
+              fill="#fafafa" stroke="#111" stroke-width="2"/>
+        <text x="74" y="110" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#111" text-anchor="middle">Prompt</text>
+        <text x="74" y="130" font-family="'Caveat',cursive" font-size="14"
+              fill="#888" text-anchor="middle">input</text>
+        <line x1="128" y1="115" x2="158" y2="115"
+              stroke="#111" stroke-width="2.2" stroke-linecap="round" marker-end="url(#a4)"/>
+
+        <!-- Model (leverage) -->
+        <rect x="160" y="52" width="164" height="126" rx="8"
+              fill="#fffbe8" stroke="none"/>
+        <rect x="160" y="52" width="164" height="126" rx="8"
+              fill="none" stroke="#111" stroke-width="2.5"/>
+        <!-- Yellow wash = leverage -->
+        <text x="242" y="80" font-family="'Caveat',cursive" font-size="19" font-weight="700"
+              fill="#111" text-anchor="middle">LLM model</text>
+        <rect x="170" y="88" width="144" height="28" rx="14"
+              fill="#f5c842" opacity="0.55" stroke="none"/>
+        <text x="242" y="107" font-family="'Caveat',cursive" font-size="16" font-weight="700"
+              fill="#111" text-anchor="middle">the leverage</text>
+        <text x="242" y="135" font-family="'Caveat',cursive" font-size="14"
+              fill="#888" text-anchor="middle">amplifies reasoning</text>
+        <text x="242" y="154" font-family="'Caveat',cursive" font-size="13"
+              fill="#888" text-anchor="middle">GPT · Claude · Gemini</text>
+        <text x="242" y="172" font-family="'Caveat',cursive" font-size="12"
+              fill="#aaa" text-anchor="middle">(interchangeable at this layer)</text>
+
+        <line x1="324" y1="115" x2="354" y2="115"
+              stroke="#111" stroke-width="2.2" stroke-linecap="round" marker-end="url(#a4)"/>
+
+        <!-- Harness -->
+        <rect x="356" y="36" width="196" height="158" rx="8"
+              fill="#f0faf2" stroke="none"/>
+        <rect x="356" y="36" width="196" height="158" rx="8"
+              fill="none" stroke="#111" stroke-width="2.5" stroke-dasharray="9 5"/>
+        <text x="454" y="62" font-family="'Caveat',cursive" font-size="19" font-weight="700"
+              fill="#111" text-anchor="middle">agent harness</text>
+        <rect x="366" y="70" width="176" height="28" rx="14"
+              fill="#c2e8cc" opacity="0.7" stroke="none"/>
+        <text x="454" y="89" font-family="'Caveat',cursive" font-size="16" font-weight="700"
+              fill="#1a6633" text-anchor="middle">the direction</text>
+        <text x="374" y="118" font-family="'Caveat',cursive" font-size="15" fill="#444">• tools + APIs</text>
+        <text x="374" y="138" font-family="'Caveat',cursive" font-size="15" fill="#444">• execution loop</text>
+        <text x="374" y="158" font-family="'Caveat',cursive" font-size="15" fill="#444">• memory + guardrails</text>
+        <text x="374" y="178" font-family="'Caveat',cursive" font-size="13" fill="#aaa">← the competitive moat</text>
+
+        <line x1="552" y1="115" x2="580" y2="115"
+              stroke="#111" stroke-width="2.2" stroke-linecap="round" marker-end="url(#a4)"/>
+
+        <!-- Output -->
+        <rect x="582" y="78" width="100" height="74" rx="7"
+              fill="#f0faf2" stroke="#1a6633" stroke-width="2"/>
+        <text x="632" y="108" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#1a6633" text-anchor="middle">useful</text>
+        <text x="632" y="128" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#1a6633" text-anchor="middle">action</text>
+
+        <!-- Bottom formula -->
+        <text x="350" y="222" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#111" text-anchor="middle">Agent  =  Model (leverage)  +  Harness (direction)</text>
+      </svg>
+    </div>
+    <p class="note">The model is the lever — a single prompt produces enormous output. The harness is the collar and traces — it ensures that output goes somewhere intentional and stops when it should. Neither is sufficient alone: power without direction is dangerous; structure without power is useless.</p>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav">
+    <button class="nav-btn" id="prev-btn" onclick="go(-1)" disabled>← prev</button>
+    <div class="nav-counter"><span id="ctr">1 / 4</span></div>
+    <div class="pips">
+      <div class="pip on" onclick="jump(0)"></div>
+      <div class="pip" onclick="jump(1)"></div>
+      <div class="pip" onclick="jump(2)"></div>
+      <div class="pip" onclick="jump(3)"></div>
+    </div>
+    <button class="nav-btn" id="next-btn" onclick="go(1)">next →</button>
+  </div>
+</div>
+
+<script>
+  const steps = document.querySelectorAll('.step');
+  const pips   = document.querySelectorAll('.pip');
+  const total  = steps.length;
+  let cur = 0;
+  function render() {
+    steps.forEach((s, i) => s.classList.toggle('active', i === cur));
+    pips.forEach((p, i)  => p.classList.toggle('on', i === cur));
+    document.getElementById('ctr').textContent = (cur + 1) + ' / ' + total;
+    document.getElementById('prev-btn').disabled = cur === 0;
+    document.getElementById('next-btn').disabled = cur === total - 1;
+  }
+  function go(d) { cur = Math.max(0, Math.min(total - 1, cur + d)); render(); }
+  function jump(i) { cur = i; render(); }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') go(1);
+    if (e.key === 'ArrowLeft')  go(-1);
+  });
+</script>
+</body>
+</html>

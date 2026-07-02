@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Principle vs Harness — Fleming's Rule & the DC Motor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #111; --ink2: #444; --ink3: #888;
+  --bg: #fff;
+  --hl: #f5c842; --hl-b: #c2d8f0; --hl-g: #c2e8cc; --hl-r: #f0c8b8;
+  --sketch: 'Caveat', cursive; --ui: 'Inter', system-ui, sans-serif;
+}
+body { background: var(--bg); font-family: var(--ui); -webkit-font-smoothing: antialiased; }
+
+/* Outer card */
+.card {
+  max-width: 760px; margin: 0 auto;
+  padding: 28px 28px 20px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+}
+
+/* Eyebrow */
+.eyebrow {
+  font-family: var(--sketch); font-size: 13px; color: var(--ink3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 4px;
+}
+/* Card title */
+.card-title {
+  font-family: var(--sketch); font-size: 26px; font-weight: 700;
+  color: var(--ink); margin-bottom: 20px;
+  border-bottom: 2px solid var(--ink); padding-bottom: 10px;
+}
+
+/* Step wrappers */
+.step { display: none; }
+.step.active { display: block; }
+
+/* Step heading */
+.step-heading {
+  font-family: var(--sketch); font-size: 20px; font-weight: 600;
+  color: var(--ink2); margin-bottom: 14px;
+}
+
+/* SVG container — always full width */
+.diagram { width: 100%; }
+.diagram svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+/* Annotation below SVG */
+.note {
+  font-family: var(--sketch); font-size: 17px; color: var(--ink2);
+  line-height: 1.65; margin-top: 14px;
+  border-left: 3px dashed var(--ink3);
+  padding: 6px 0 6px 14px;
+}
+
+/* Nav row */
+.nav {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1.5px dashed var(--ink3);
+}
+.nav-btn {
+  font-family: var(--sketch); font-size: 18px;
+  background: none; border: 2px solid var(--ink);
+  border-radius: 5px; padding: 4px 20px;
+  cursor: pointer; color: var(--ink);
+  transition: background .15s, color .15s;
+}
+.nav-btn:hover:not(:disabled) { background: var(--ink); color: #fff; }
+.nav-btn:disabled { opacity: 0.22; cursor: default; }
+.nav-counter {
+  font-family: var(--sketch); font-size: 17px; color: var(--ink3);
+  flex: 1; text-align: center;
+}
+/* Pip dots */
+.pips { display: flex; gap: 8px; }
+.pip {
+  width: 9px; height: 9px; border-radius: 50%;
+  border: 2px solid var(--ink3); background: none; cursor: pointer;
+}
+.pip.on { background: var(--ink); border-color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="eyebrow">Harness Engineering — Visual 1 of 3</p>
+  <p class="card-title">A Principle Is Not a Harness</p>
+
+  <!-- ── Step 1: Fleming's Left Hand Rule ── -->
+  <div class="step active" id="s1">
+    <p class="step-heading">Step 1 — The underlying principle: Fleming's Left Hand Rule</p>
+    <div class="diagram">
+      <svg viewBox="0 0 700 320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#111"/>
+          </marker>
+          <marker id="ah-b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#1a4d99"/>
+          </marker>
+          <marker id="ah-g" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#1a6633"/>
+          </marker>
+          <marker id="ah-r" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#993322"/>
+          </marker>
+        </defs>
+
+        <!-- ── HAND (schematic, left side) ── -->
+        <!-- Palm block -->
+        <rect x="60" y="130" width="110" height="140" rx="20"
+              fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round"/>
+
+        <!-- THUMB — Force/Motion, pointing UP — blue wash -->
+        <rect x="38" y="50" width="40" height="98" rx="18"
+              fill="#c2d8f0" opacity="0.7" stroke="none"/>
+        <rect x="38" y="50" width="40" height="98" rx="18"
+              fill="none" stroke="#1a4d99" stroke-width="2.2"/>
+        <!-- Thumb arrow upward -->
+        <line x1="58" y1="48" x2="58" y2="8"
+              stroke="#1a4d99" stroke-width="3" stroke-linecap="round"
+              marker-end="url(#ah-b)"/>
+
+        <!-- INDEX FINGER — B field, pointing right — green wash -->
+        <rect x="170" y="108" width="108" height="36" rx="17"
+              fill="#c2e8cc" opacity="0.7" stroke="none"/>
+        <rect x="170" y="108" width="108" height="36" rx="17"
+              fill="none" stroke="#1a6633" stroke-width="2.2"/>
+        <!-- B field arrow rightward -->
+        <line x1="278" y1="126" x2="440" y2="126"
+              stroke="#1a6633" stroke-width="2.5" stroke-linecap="round"
+              marker-end="url(#ah-g)"/>
+
+        <!-- MIDDLE FINGER — Current, toward viewer — red wash + dot -->
+        <rect x="78" y="260" width="80" height="36" rx="17"
+              fill="#f0c8b8" opacity="0.7" stroke="none"/>
+        <rect x="78" y="260" width="80" height="36" rx="17"
+              fill="none" stroke="#993322" stroke-width="2.2"/>
+        <!-- Current-toward-viewer: circle + dot -->
+        <circle cx="118" cy="308" r="14"
+                fill="none" stroke="#993322" stroke-width="2"/>
+        <circle cx="118" cy="308" r="5" fill="#993322"/>
+
+        <!-- ── LABELS (right of hand) ── -->
+        <!-- Thumb / Force -->
+        <text x="28" y="20" font-family="'Caveat',cursive" font-size="21" font-weight="700"
+              fill="#1a4d99" text-anchor="middle">F</text>
+        <text x="75" y="20" font-family="'Caveat',cursive" font-size="18" fill="#1a4d99">= Force / Motion</text>
+        <text x="75" y="40" font-family="'Caveat',cursive" font-size="14" fill="#888">(thumb points up)</text>
+
+        <!-- Index / B field -->
+        <text x="455" y="120" font-family="'Caveat',cursive" font-size="21" font-weight="700"
+              fill="#1a6633">B</text>
+        <text x="475" y="120" font-family="'Caveat',cursive" font-size="18" fill="#1a6633">= Magnetic field</text>
+        <text x="455" y="140" font-family="'Caveat',cursive" font-size="14" fill="#888">(index points right)</text>
+
+        <!-- Middle / Current -->
+        <text x="210" y="298" font-family="'Caveat',cursive" font-size="21" font-weight="700"
+              fill="#993322">I</text>
+        <text x="230" y="298" font-family="'Caveat',cursive" font-size="18" fill="#993322">= Current</text>
+        <text x="210" y="316" font-family="'Caveat',cursive" font-size="14" fill="#888">(middle → toward you)</text>
+
+        <!-- Formula box -->
+        <rect x="460" y="210" width="220" height="86" rx="6"
+              fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/>
+        <!-- Yellow highlight behind formula -->
+        <rect x="462" y="228" width="216" height="36" rx="3"
+              fill="#f5c842" opacity="0.4" stroke="none"/>
+        <text x="570" y="220" font-family="'Caveat',cursive" font-size="14" fill="#888"
+              text-anchor="middle">Lorentz force law</text>
+        <text x="570" y="255" font-family="'Caveat',cursive" font-size="28" font-weight="700"
+              fill="#111" text-anchor="middle">F = IL × B</text>
+        <text x="570" y="284" font-family="'Caveat',cursive" font-size="13" fill="#888"
+              text-anchor="middle">context-free · always true</text>
+
+        <!-- Dashed connector from formula to hand region -->
+        <line x1="460" y1="260" x2="170" y2="200"
+              stroke="#888" stroke-width="1" stroke-dasharray="5 4" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <p class="note">Three perpendicular vectors: field (B), current (I), force (F). This rule applies in a lab bench, a rail gun, or deep space. It is context-free physics — it tells you <em>what will happen</em> when current flows through a magnetic field.</p>
+  </div>
+
+  <!-- ── Step 2: The DC Motor ── -->
+  <div class="step" id="s2">
+    <p class="step-heading">Step 2 — The harness: a DC motor wraps the principle</p>
+    <div class="diagram">
+      <svg viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="bh" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#111"/>
+          </marker>
+          <marker id="bh-b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#1a4d99"/>
+          </marker>
+          <marker id="bh-g" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#1a6633"/>
+          </marker>
+          <marker id="bh-r" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#993322"/>
+          </marker>
+        </defs>
+
+        <!-- Stator outer ring -->
+        <circle cx="240" cy="195" r="148"
+                fill="none" stroke="#111" stroke-width="2.2"/>
+
+        <!-- N-pole magnet (left) -->
+        <rect x="58" y="148" width="70" height="74" rx="6"
+              fill="#c2d8f0" opacity="0.75" stroke="none"/>
+        <rect x="58" y="148" width="70" height="74" rx="6"
+              fill="none" stroke="#1a4d99" stroke-width="2.2"/>
+        <text x="93" y="179" font-family="'Caveat',cursive" font-size="30" font-weight="700"
+              fill="#1a4d99" text-anchor="middle">N</text>
+        <text x="93" y="204" font-family="'Caveat',cursive" font-size="14"
+              fill="#1a4d99" text-anchor="middle">pole</text>
+
+        <!-- S-pole magnet (right) -->
+        <rect x="352" y="148" width="70" height="74" rx="6"
+              fill="#f0c8b8" opacity="0.75" stroke="none"/>
+        <rect x="352" y="148" width="70" height="74" rx="6"
+              fill="none" stroke="#993322" stroke-width="2.2"/>
+        <text x="387" y="179" font-family="'Caveat',cursive" font-size="30" font-weight="700"
+              fill="#993322" text-anchor="middle">S</text>
+        <text x="387" y="204" font-family="'Caveat',cursive" font-size="14"
+              fill="#993322" text-anchor="middle">pole</text>
+
+        <!-- B-field dashed arrows left→right -->
+        <line x1="130" y1="175" x2="350" y2="175"
+              stroke="#1a4d99" stroke-width="1.6" stroke-dasharray="9 5" stroke-linecap="round"
+              marker-end="url(#bh-b)"/>
+        <line x1="130" y1="195" x2="350" y2="195"
+              stroke="#1a4d99" stroke-width="1.2" stroke-dasharray="9 5" stroke-linecap="round"
+              marker-end="url(#bh-b)" opacity="0.55"/>
+        <line x1="130" y1="215" x2="350" y2="215"
+              stroke="#1a4d99" stroke-width="1" stroke-dasharray="9 5" stroke-linecap="round"
+              marker-end="url(#bh-b)" opacity="0.35"/>
+        <text x="240" y="162" font-family="'Caveat',cursive" font-size="15"
+              fill="#1a4d99" text-anchor="middle">B  →</text>
+
+        <!-- Armature coil (tilted rectangle) -->
+        <rect x="192" y="152" width="96" height="96" rx="8"
+              fill="none" stroke="#111" stroke-width="2.5"
+              transform="rotate(-15 240 200)"/>
+
+        <!-- Shaft (centre) -->
+        <circle cx="240" cy="195" r="12"
+                fill="#fff" stroke="#111" stroke-width="2.2"/>
+        <circle cx="240" cy="195" r="4" fill="#111"/>
+
+        <!-- Force arrows (torque on coil sides) -->
+        <line x1="196" y1="210" x2="196" y2="168"
+              stroke="#993322" stroke-width="3" stroke-linecap="round"
+              marker-end="url(#bh-r)"/>
+        <line x1="288" y1="178" x2="288" y2="220"
+              stroke="#993322" stroke-width="3" stroke-linecap="round"
+              marker-end="url(#bh-r)"/>
+
+        <!-- Commutator (highlighted — key mechanism) -->
+        <rect x="210" y="310" width="60" height="24" rx="5"
+              fill="#f5c842" opacity="0.6" stroke="none"/>
+        <rect x="210" y="310" width="60" height="24" rx="5"
+              fill="none" stroke="#111" stroke-width="2"/>
+        <text x="240" y="326" font-family="'Caveat',cursive" font-size="14" font-weight="700"
+              fill="#111" text-anchor="middle">commutator</text>
+
+        <!-- Brushes -->
+        <rect x="190" y="336" width="20" height="28" rx="3"
+              fill="none" stroke="#444" stroke-width="1.8"/>
+        <rect x="250" y="336" width="20" height="28" rx="3"
+              fill="none" stroke="#444" stroke-width="1.8"/>
+
+        <!-- Output shaft arrow -->
+        <line x1="240" y1="46" x2="240" y2="10"
+              stroke="#1a6633" stroke-width="3.5" stroke-linecap="round"
+              marker-end="url(#bh-g)"/>
+        <text x="260" y="30" font-family="'Caveat',cursive" font-size="17"
+              fill="#1a6633">output shaft</text>
+
+        <!-- ── Component legend (right side) ── -->
+        <rect x="468" y="44" width="218" height="286" rx="7"
+              fill="none" stroke="#888" stroke-width="1.2" stroke-dasharray="7 5"/>
+        <text x="577" y="70" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#111" text-anchor="middle">Harness components</text>
+        <line x1="478" y1="80" x2="676" y2="80"
+              stroke="#888" stroke-width="1" stroke-dasharray="5 4"/>
+
+        <text x="482" y="106" font-family="'Caveat',cursive" font-size="17" fill="#444">① stator + magnets</text>
+        <text x="490" y="124" font-family="'Caveat',cursive" font-size="13" fill="#888">provide the B field</text>
+
+        <text x="482" y="150" font-family="'Caveat',cursive" font-size="17" fill="#444">② wound armature</text>
+        <text x="490" y="168" font-family="'Caveat',cursive" font-size="13" fill="#888">current-carrying coil in field</text>
+
+        <text x="482" y="194" font-family="'Caveat',cursive" font-size="17" fill="#444">③ commutator  ★</text>
+        <text x="490" y="212" font-family="'Caveat',cursive" font-size="13" fill="#888">reverses I each half-turn</text>
+
+        <text x="482" y="238" font-family="'Caveat',cursive" font-size="17" fill="#444">④ brushes</text>
+        <text x="490" y="256" font-family="'Caveat',cursive" font-size="13" fill="#888">sliding electrical contact</text>
+
+        <text x="482" y="282" font-family="'Caveat',cursive" font-size="17" fill="#444">⑤ housing + shaft</text>
+        <text x="490" y="300" font-family="'Caveat',cursive" font-size="13" fill="#888">transmit + contain output</text>
+
+        <!-- Connector dashes from diagram to list -->
+        <line x1="128" y1="185" x2="466" y2="130"
+              stroke="#bbb" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="240" y1="320" x2="466" y2="205"
+              stroke="#bbb" stroke-width="1" stroke-dasharray="4 4"/>
+      </svg>
+    </div>
+    <p class="note">The ★ commutator is the critical insight. Without it, the coil would oscillate back and forth (a twitch). The commutator reverses current every half-rotation so torque always pushes the same way — producing <em>continuous, controlled rotation</em>. That's what a harness does: it makes the principle keep going productively.</p>
+  </div>
+
+  <!-- ── Step 3: In ML ── -->
+  <div class="step" id="s3">
+    <p class="step-heading">Step 3 — The same structure in machine learning</p>
+    <div class="diagram">
+      <svg viewBox="0 0 700 310" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ch" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+            <path d="M1,1 L1,8 L9,4.5 Z" fill="#111"/>
+          </marker>
+        </defs>
+
+        <!-- Column divider -->
+        <line x1="350" y1="20" x2="350" y2="290"
+              stroke="#ccc" stroke-width="1.2" stroke-dasharray="6 5"/>
+
+        <!-- Column headers -->
+        <text x="175" y="24" font-family="'Caveat',cursive" font-size="20" font-weight="700"
+              fill="#111" text-anchor="middle">DC Motor</text>
+        <text x="525" y="24" font-family="'Caveat',cursive" font-size="20" font-weight="700"
+              fill="#111" text-anchor="middle">LLM Agent</text>
+
+        <!-- ══ LEFT COLUMN ══ -->
+        <!-- Principle -->
+        <rect x="30" y="38" width="290" height="54" rx="7"
+              fill="#c2d8f0" opacity="0.65" stroke="none"/>
+        <rect x="30" y="38" width="290" height="54" rx="7"
+              fill="none" stroke="#1a4d99" stroke-width="2"/>
+        <text x="175" y="60" font-family="'Caveat',cursive" font-size="20" font-weight="700"
+              fill="#1a4d99" text-anchor="middle">F = IL × B</text>
+        <text x="175" y="80" font-family="'Caveat',cursive" font-size="15"
+              fill="#1a4d99" text-anchor="middle">Lorentz force law</text>
+
+        <line x1="175" y1="93" x2="175" y2="115"
+              stroke="#111" stroke-width="2" stroke-linecap="round" marker-end="url(#ch)"/>
+
+        <!-- Harness (dashed border) -->
+        <rect x="30" y="117" width="290" height="118" rx="7"
+              fill="#fffbe8" opacity="0.9" stroke="none"/>
+        <rect x="30" y="117" width="290" height="118" rx="7"
+              fill="none" stroke="#111" stroke-width="1.8" stroke-dasharray="8 5"/>
+        <text x="175" y="140" font-family="'Caveat',cursive" font-size="16" fill="#444"
+              text-anchor="middle">harness</text>
+        <text x="50" y="163" font-family="'Caveat',cursive" font-size="16" fill="#444">• stator + magnets</text>
+        <text x="50" y="184" font-family="'Caveat',cursive" font-size="16" fill="#444">• wound armature</text>
+        <text x="50" y="205" font-family="'Caveat',cursive" font-size="16" fill="#444">• commutator  ★</text>
+        <text x="50" y="226" font-family="'Caveat',cursive" font-size="16" fill="#444">• brushes + housing</text>
+
+        <line x1="175" y1="236" x2="175" y2="258"
+              stroke="#111" stroke-width="2" stroke-linecap="round" marker-end="url(#ch)"/>
+
+        <!-- Output -->
+        <rect x="30" y="260" width="290" height="46" rx="7"
+              fill="#c2e8cc" opacity="0.65" stroke="none"/>
+        <rect x="30" y="260" width="290" height="46" rx="7"
+              fill="none" stroke="#1a6633" stroke-width="2"/>
+        <text x="175" y="282" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#1a6633" text-anchor="middle">continuous rotation</text>
+        <text x="175" y="299" font-family="'Caveat',cursive" font-size="13"
+              fill="#1a6633" text-anchor="middle">drill · fan · EV drivetrain</text>
+
+        <!-- ══ RIGHT COLUMN ══ -->
+        <!-- Principle -->
+        <rect x="380" y="38" width="290" height="54" rx="7"
+              fill="#c2d8f0" opacity="0.65" stroke="none"/>
+        <rect x="380" y="38" width="290" height="54" rx="7"
+              fill="none" stroke="#1a4d99" stroke-width="2"/>
+        <text x="525" y="60" font-family="'Caveat',cursive" font-size="20" font-weight="700"
+              fill="#1a4d99" text-anchor="middle">transformer + attention</text>
+        <text x="525" y="80" font-family="'Caveat',cursive" font-size="15"
+              fill="#1a4d99" text-anchor="middle">the architecture as principle</text>
+
+        <line x1="525" y1="93" x2="525" y2="115"
+              stroke="#111" stroke-width="2" stroke-linecap="round" marker-end="url(#ch)"/>
+
+        <!-- Harness (dashed border) -->
+        <rect x="380" y="117" width="290" height="118" rx="7"
+              fill="#fffbe8" opacity="0.9" stroke="none"/>
+        <rect x="380" y="117" width="290" height="118" rx="7"
+              fill="none" stroke="#111" stroke-width="1.8" stroke-dasharray="8 5"/>
+        <text x="525" y="140" font-family="'Caveat',cursive" font-size="16" fill="#444"
+              text-anchor="middle">harness</text>
+        <text x="400" y="163" font-family="'Caveat',cursive" font-size="16" fill="#444">• system prompt + context</text>
+        <text x="400" y="184" font-family="'Caveat',cursive" font-size="16" fill="#444">• tool definitions</text>
+        <text x="400" y="205" font-family="'Caveat',cursive" font-size="16" fill="#444">• execution loop  ★</text>
+        <text x="400" y="226" font-family="'Caveat',cursive" font-size="16" fill="#444">• memory + guardrails</text>
+
+        <line x1="525" y1="236" x2="525" y2="258"
+              stroke="#111" stroke-width="2" stroke-linecap="round" marker-end="url(#ch)"/>
+
+        <!-- Output -->
+        <rect x="380" y="260" width="290" height="46" rx="7"
+              fill="#c2e8cc" opacity="0.65" stroke="none"/>
+        <rect x="380" y="260" width="290" height="46" rx="7"
+              fill="none" stroke="#1a6633" stroke-width="2"/>
+        <text x="525" y="282" font-family="'Caveat',cursive" font-size="18" font-weight="700"
+              fill="#1a6633" text-anchor="middle">autonomous agent action</text>
+        <text x="525" y="299" font-family="'Caveat',cursive" font-size="13"
+              fill="#1a6633" text-anchor="middle">code · research · decisions</text>
+
+        <!-- Bridge annotation -->
+        <text x="350" y="190" font-family="'Caveat',cursive" font-size="13" fill="#aaa"
+              text-anchor="middle" transform="rotate(-90 350 190)">same structure</text>
+      </svg>
+    </div>
+    <p class="note">The ★ execution loop in an AI agent does what the commutator does in a motor: it keeps things turning in the right direction. At each step — call model → execute tools → feed results back → repeat — it prevents the system from oscillating and ensures the principle produces <em>useful, directed output</em>.</p>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav">
+    <button class="nav-btn" id="prev-btn" onclick="go(-1)" disabled>← prev</button>
+    <div class="nav-counter">
+      <span id="ctr">1 / 3</span>
+    </div>
+    <div class="pips">
+      <div class="pip on" onclick="jump(0)"></div>
+      <div class="pip" onclick="jump(1)"></div>
+      <div class="pip" onclick="jump(2)"></div>
+    </div>
+    <button class="nav-btn" id="next-btn" onclick="go(1)">next →</button>
+  </div>
+</div>
+
+<script>
+  const steps = document.querySelectorAll('.step');
+  const pips   = document.querySelectorAll('.pip');
+  const total  = steps.length;
+  let cur = 0;
+
+  function render() {
+    steps.forEach((s, i) => s.classList.toggle('active', i === cur));
+    pips.forEach((p, i)  => p.classList.toggle('on', i === cur));
+    document.getElementById('ctr').textContent = (cur + 1) + ' / ' + total;
+    document.getElementById('prev-btn').disabled = cur === 0;
+    document.getElementById('next-btn').disabled = cur === total - 1;
+  }
+
+  function go(d) { cur = Math.max(0, Math.min(total - 1, cur + d)); render(); }
+  function jump(i) { cur = i; render(); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') go(1);
+    if (e.key === 'ArrowLeft')  go(-1);
+  });
+</script>
+</body>
+</html>
