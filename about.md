@@ -110,6 +110,14 @@ When I'm not building, I'm reading, writing, talking (a lot), and searching for 
 
 ---
 
+## The Other Obsession: Travelling
+
+I travel every chance I get. Not the kind where you tick off landmarks — the kind where you find yourself at a street food stall at midnight not quite knowing how you got there, and not wanting to leave. Every trip has given me something a conference never could: a completely different frame for thinking about the world.
+
+I've been quietly tracking it all — countries, cities, the rough shape of where I've been and where I still want to go. If you're curious (or a fellow travel nerd), here's **[my travel dashboard →](/travel-dashboard.html)**. It's a work in progress, much like the travel itself.
+
+---
+
 ## Let's Connect
 
 If you're working on something that could dent the universe — or even just make someone's day a little better — I'd love to hear about it.
