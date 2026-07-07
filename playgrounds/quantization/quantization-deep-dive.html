@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Quantization Deep Dive — Step by Step</title>
+<style>
+:root {
+  --purple:#7F77DD; --purple-lt:#EEEDFE; --purple-mid:#AFA9EC; --purple-dk:#3C3489;
+  --teal:#1D9E75;   --teal-lt:#E1F5EE;   --teal-dk:#085041;
+  --coral:#D85A30;  --coral-lt:#FAECE7;  --coral-dk:#4A1B0C;
+  --amber:#EF9F27;  --amber-lt:#FAEEDA;  --amber-dk:#412402;
+  --red:#E24B4A;    --red-lt:#FCEBEB;    --red-dk:#501313;
+  --blue:#378ADD;   --blue-lt:#E6F1FB;   --blue-dk:#042C53;
+  --green:#3B6D11;  --green-lt:#EAF3DE;
+  --gray:#888780;   --gray-lt:#F1EFE8;
+  --text:#1a1a18;   --text2:#5F5E5A;   --text3:#888780;
+  --bg:#ffffff;     --bg2:#F7F6F2;     --border:rgba(0,0,0,0.09);  --border2:rgba(0,0,0,0.16);
+  --r:10px; --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:#eceae3;padding:28px 16px 60px;display:flex;flex-direction:column;align-items:center;gap:32px}
+
+/* ── outer card ── */
+.card{background:var(--bg);border-radius:16px;border:1px solid var(--border);width:100%;max-width:820px;overflow:hidden}
+.card-hdr{padding:22px 28px 0}
+.card-hdr h2{font-size:17px;font-weight:600;color:var(--text);margin-bottom:3px}
+.card-hdr p{font-size:13px;color:var(--text3);margin-bottom:16px}
+
+/* ── method tab bar ── */
+.method-tabs{display:flex;border-bottom:1px solid var(--border)}
+.mtab{flex:1;padding:11px 6px;font-size:13px;font-weight:500;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-family:var(--sans)}
+.mtab:hover{color:var(--text);background:var(--bg2)}
+.mtab.active{color:var(--text);border-bottom-color:var(--text)}
+
+/* ── method panel ── */
+.method-panel{display:none;padding:0}
+.method-panel.active{display:block}
+
+/* ── step progress bar ── */
+.step-bar{display:flex;align-items:center;padding:16px 28px 0;gap:0}
+.step-item{display:flex;flex-direction:column;align-items:center;flex:1;cursor:pointer;position:relative}
+.step-item:not(:last-child)::after{content:'';position:absolute;top:14px;left:60%;width:80%;height:1.5px;background:var(--border2)}
+.step-item.done::after{background:var(--text)}
+.step-circle{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border2);background:var(--bg2);font-size:12px;font-weight:600;color:var(--text3);display:flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:all .2s}
+.step-item.active .step-circle{background:var(--text);border-color:var(--text);color:#fff}
+.step-item.done .step-circle{background:var(--text3);border-color:var(--text3);color:#fff}
+.step-lbl{font-size:10px;color:var(--text3);margin-top:5px;text-align:center;line-height:1.3;max-width:80px}
+.step-item.active .step-lbl{color:var(--text);font-weight:500}
+
+/* ── slide body ── */
+.step-slides{padding:20px 28px 0}
+.sstep{display:none}
+.sstep.active{display:block;padding-bottom:4px}
+
+.step-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px}
+.step-desc{font-size:13px;color:var(--text2);line-height:1.65;margin-bottom:16px}
+
+/* ── network viz ── */
+.net-wrap{width:100%;margin-bottom:18px}
+.net-wrap svg{width:100%;height:auto;display:block}
+
+/* ── caption & insight ── */
+.caption{font-size:13px;line-height:1.65;color:var(--text2);padding:12px 16px;border-left:3px solid var(--border2);background:var(--bg2);border-radius:0 8px 8px 0;margin-bottom:12px}
+.caption strong{color:var(--text);font-weight:600}
+.insight{font-size:13px;line-height:1.65;color:var(--text2);padding:11px 15px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);margin-bottom:4px}
+.insight b{color:var(--text);font-weight:600}
+
+/* ── nav buttons ── */
+.step-nav{display:flex;align-items:center;justify-content:space-between;padding:16px 28px 20px;border-top:1px solid var(--border)}
+.btn{font-family:var(--sans);font-size:13px;font-weight:500;padding:8px 20px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--bg2)}
+.btn:disabled{opacity:.3;cursor:default}
+.btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
+.btn.primary:hover{opacity:.88}
+.step-counter{font-size:12px;color:var(--text3)}
+
+/* ── weight tables ── */
+.wtable{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px}
+.wtable th{font-size:11px;font-weight:600;color:var(--text3);padding:6px 10px;text-align:left;border-bottom:1px solid var(--border2);background:var(--bg2)}
+.wtable td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.wtable tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:12px;font-weight:500;white-space:nowrap}
+.err{color:var(--red);font-weight:600}
+.good{color:var(--teal);font-weight:600}
+
+/* ── legend row ── */
+.legend{display:flex;flex-wrap:wrap;gap:10px 18px;margin-bottom:14px;font-size:12px;color:var(--text2)}
+.leg{display:flex;align-items:center;gap:5px}
+.ld{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* ── number line ── */
+.nline-wrap{background:var(--bg2);border-radius:8px;padding:16px 18px;margin-bottom:16px;border:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     TOP CARD — context + model definition
+═══════════════════════════════════════ -->
+<div class="card">
+  <div class="card-hdr">
+    <h2>Our toy network — before quantization</h2>
+    <p>6 weights, all fp32. We'll quantize these three ways and watch what happens to each weight.</p>
+  </div>
+  <div style="padding:16px 28px 24px">
+    <div class="net-wrap">
+      <svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+        </defs>
+        <!-- edges i→h -->
+        <line x1="148" y1="90"  x2="295" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#ab)"/>
+        <line x1="148" y1="90"  x2="295" y2="175" stroke="#ddd" stroke-width="2" marker-end="url(#ab)"/>
+        <line x1="148" y1="175" x2="295" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#ab)"/>
+        <line x1="148" y1="175" x2="295" y2="175" stroke="#ddd" stroke-width="2" marker-end="url(#ab)"/>
+        <!-- edge weight labels -->
+        <rect x="188" y="73"  width="44" height="18" rx="4" fill="white" stroke="#e8e7e0" stroke-width="1"/>
+        <text x="210" y="86"  text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₁₁=0.43</text>
+        <rect x="183" y="112" width="44" height="18" rx="4" fill="white" stroke="#e8e7e0" stroke-width="1"/>
+        <text x="205" y="125" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₁₂=0.07</text>
+        <rect x="183" y="148" width="44" height="18" rx="4" fill="white" stroke="#e8e7e0" stroke-width="1"/>
+        <text x="205" y="161" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₂₁=0.91</text>
+        <rect x="188" y="174" width="44" height="18" rx="4" fill="white" stroke="#e8e7e0" stroke-width="1"/>
+        <text x="210" y="187" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₂₂=0.02</text>
+        <!-- edges h→o -->
+        <line x1="362" y1="90"  x2="515" y2="132" stroke="#ddd" stroke-width="2" marker-end="url(#ab)"/>
+        <line x1="362" y1="175" x2="515" y2="132" stroke="#ddd" stroke-width="2" marker-end="url(#ab)"/>
+        <rect x="410" y="96"  width="44" height="18" rx="4" fill="white" stroke="#e8e7e0" stroke-width="1"/>
+        <text x="432" y="109" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₃₁=0.65</text>
+        <rect x="410" y="148" width="44" height="18" rx="4" fill="white" stroke="#e8e7e0" stroke-width="1"/>
+        <text x="432" y="161" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₃₂=0.38</text>
+        <!-- nodes -->
+        <circle cx="110" cy="90"  r="33" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="85"  text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₁</text>
+        <text x="110" y="101" text-anchor="middle" font-size="11" fill="#534AB7" font-family="-apple-system,sans-serif">1.20</text>
+        <circle cx="110" cy="175" r="33" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="170" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₂</text>
+        <text x="110" y="186" text-anchor="middle" font-size="11" fill="#534AB7" font-family="-apple-system,sans-serif">0.80</text>
+        <circle cx="328" cy="90"  r="33" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="328" y="85"  text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₁</text>
+        <text x="328" y="101" text-anchor="middle" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">0.56</text>
+        <circle cx="328" cy="175" r="33" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="328" y="170" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₂</text>
+        <text x="328" y="186" text-anchor="middle" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">0.74</text>
+        <circle cx="550" cy="132" r="33" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="550" y="127" text-anchor="middle" font-size="12" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">ŷ</text>
+        <text x="550" y="143" text-anchor="middle" font-size="11" fill="#993C1D" font-family="-apple-system,sans-serif">0.81</text>
+        <!-- labels -->
+        <text x="110" y="218" text-anchor="middle" font-size="11" fill="#aaa" font-family="-apple-system,sans-serif">Input</text>
+        <text x="328" y="218" text-anchor="middle" font-size="11" fill="#aaa" font-family="-apple-system,sans-serif">Hidden</text>
+        <text x="550" y="218" text-anchor="middle" font-size="11" fill="#aaa" font-family="-apple-system,sans-serif">Output</text>
+        <!-- weight table callout -->
+        <rect x="618" y="50" width="130" height="148" rx="8" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+        <text x="683" y="70" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a18" font-family="-apple-system,sans-serif">Weights (fp32)</text>
+        <line x1="618" y1="78" x2="748" y2="78" stroke="#e0e0d8" stroke-width="0.8"/>
+        <text x="636" y="96"  font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₁₁ = 0.43</text>
+        <text x="636" y="114" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₁₂ = 0.07</text>
+        <text x="636" y="132" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₂₁ = 0.91</text>
+        <text x="636" y="150" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₂₂ = 0.02</text>
+        <text x="636" y="168" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₃₁ = 0.65</text>
+        <text x="636" y="186" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">w₃₂ = 0.38</text>
+      </svg>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px">
+      <div style="background:var(--bg2);border-radius:8px;padding:10px 14px;border:1px solid var(--border)">
+        <div style="color:var(--text3);margin-bottom:3px">Weight range</div>
+        <div style="font-weight:600;color:var(--text)">0.02 → 0.91</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:10px 14px;border:1px solid var(--border)">
+        <div style="color:var(--text3);margin-bottom:3px">Naïve INT4 scale s</div>
+        <div style="font-weight:600;color:var(--text)">(0.91−0.02)/15 = 0.059</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:10px 14px;border:1px solid var(--border)">
+        <div style="color:var(--text3);margin-bottom:3px">Max rounding error</div>
+        <div style="font-weight:600;color:var(--text)">±0.030 per weight</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     GPTQ CARD
+═══════════════════════════════════════ -->
+<div class="card" id="gptq-card">
+  <div class="card-hdr">
+    <h2 style="color:var(--purple-dk)">GPTQ — step by step</h2>
+    <p>Second-order quantization: use the Hessian to decide what to quantize first, compensate errors downstream.</p>
+  </div>
+
+  <div class="method-tabs" id="gptq-tabs">
+    <button class="mtab active" onclick="gStep(0)">① Calibrate</button>
+    <button class="mtab" onclick="gStep(1)">② Rank</button>
+    <button class="mtab" onclick="gStep(2)">③ Quantize</button>
+    <button class="mtab" onclick="gStep(3)">④ Compensate</button>
+    <button class="mtab" onclick="gStep(4)">⑤ Result</button>
+  </div>
+
+  <!-- GPTQ Step 0: Calibrate -->
+  <div class="sstep active" id="g0" style="padding:20px 28px 16px">
+    <div class="step-title">Run calibration data — compute H per weight</div>
+    <div class="step-desc">Pass a small calibration dataset through the frozen model. For each weight, compute the diagonal of the Hessian of the loss — how steeply the loss changes when you perturb that weight.</div>
+    <div class="net-wrap">
+      <svg viewBox="0 0 760 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ag0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+          <marker id="ag0r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+        </defs>
+        <!-- calibration data flowing in -->
+        <rect x="8" y="100" width="62" height="40" rx="6" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+        <text x="39" y="117" text-anchor="middle" font-size="10" font-weight="600" fill="#412402" font-family="-apple-system,sans-serif">calib</text>
+        <text x="39" y="131" text-anchor="middle" font-size="10" fill="#633806" font-family="-apple-system,sans-serif">data</text>
+        <line x1="70" y1="120" x2="84" y2="105" stroke="#EF9F27" stroke-width="1.5" marker-end="url(#ag0r)"/>
+        <!-- nodes -->
+        <circle cx="110" cy="95"  r="28" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="99" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₁</text>
+        <circle cx="110" cy="175" r="28" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="179" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₂</text>
+        <circle cx="305" cy="95"  r="28" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="305" y="99" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₁</text>
+        <circle cx="305" cy="175" r="28" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="305" y="179" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₂</text>
+        <circle cx="490" cy="135" r="28" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="490" y="139" text-anchor="middle" font-size="12" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">ŷ</text>
+        <!-- edges -->
+        <line x1="138" y1="95"  x2="277" y2="95"  stroke="#ddd" stroke-width="1.5" marker-end="url(#ag0)"/>
+        <line x1="138" y1="95"  x2="277" y2="175" stroke="#ddd" stroke-width="1.5" marker-end="url(#ag0)"/>
+        <line x1="138" y1="175" x2="277" y2="95"  stroke="#ddd" stroke-width="1.5" marker-end="url(#ag0)"/>
+        <line x1="138" y1="175" x2="277" y2="175" stroke="#ddd" stroke-width="1.5" marker-end="url(#ag0)"/>
+        <line x1="333" y1="95"  x2="462" y2="135" stroke="#ddd" stroke-width="1.5" marker-end="url(#ag0)"/>
+        <line x1="333" y1="175" x2="462" y2="135" stroke="#ddd" stroke-width="1.5" marker-end="url(#ag0)"/>
+        <!-- Hessian annotations on each edge -->
+        <!-- w11 -->
+        <rect x="183" y="73" width="52" height="26" rx="4" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+        <text x="209" y="84" text-anchor="middle" font-size="10" fill="#534AB7" font-family="-apple-system,sans-serif">H=8.4</text>
+        <text x="209" y="95" text-anchor="middle" font-size="10" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">HIGH</text>
+        <!-- w12 -->
+        <rect x="175" y="106" width="52" height="26" rx="4" fill="#F1EFE8" stroke="#aaa" stroke-width="1"/>
+        <text x="201" y="117" text-anchor="middle" font-size="10" fill="#666" font-family="-apple-system,sans-serif">H=0.3</text>
+        <text x="201" y="128" text-anchor="middle" font-size="10" fill="#888" font-family="-apple-system,sans-serif">low</text>
+        <!-- w21 -->
+        <rect x="175" y="148" width="52" height="26" rx="4" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="1"/>
+        <text x="201" y="159" text-anchor="middle" font-size="10" fill="#534AB7" font-family="-apple-system,sans-serif">H=3.1</text>
+        <text x="201" y="170" text-anchor="middle" font-size="10" fill="#7F77DD" font-family="-apple-system,sans-serif">med</text>
+        <!-- w22 -->
+        <rect x="183" y="175" width="52" height="26" rx="4" fill="#F1EFE8" stroke="#aaa" stroke-width="1"/>
+        <text x="209" y="186" text-anchor="middle" font-size="10" fill="#666" font-family="-apple-system,sans-serif">H=0.1</text>
+        <text x="209" y="197" text-anchor="middle" font-size="10" fill="#888" font-family="-apple-system,sans-serif">low</text>
+        <!-- w31 -->
+        <rect x="370" y="96" width="52" height="26" rx="4" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+        <text x="396" y="107" text-anchor="middle" font-size="10" fill="#534AB7" font-family="-apple-system,sans-serif">H=5.2</text>
+        <text x="396" y="118" text-anchor="middle" font-size="10" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">HIGH</text>
+        <!-- w32 -->
+        <rect x="370" y="148" width="52" height="26" rx="4" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="1"/>
+        <text x="396" y="159" text-anchor="middle" font-size="10" fill="#534AB7" font-family="-apple-system,sans-serif">H=2.8</text>
+        <text x="396" y="170" text-anchor="middle" font-size="10" fill="#7F77DD" font-family="-apple-system,sans-serif">med</text>
+        <!-- legend note -->
+        <rect x="560" y="60" width="190" height="110" rx="8" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+        <text x="655" y="80" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a18" font-family="-apple-system,sans-serif">Hessian diagonal</text>
+        <text x="655" y="96" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">= ∂²Loss / ∂w²</text>
+        <text x="655" y="115" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">Large H = weight</text>
+        <text x="655" y="130" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">strongly affects loss.</text>
+        <text x="655" y="148" text-anchor="middle" font-size="11" fill="#5F5E5A" font-family="-apple-system,sans-serif">Round it carelessly</text>
+        <text x="655" y="163" text-anchor="middle" font-size="11" fill="#D85A30" font-family="-apple-system,sans-serif">→ big output error.</text>
+      </svg>
+    </div>
+    <div class="caption">Each edge now has a Hessian score. <strong>w₁₁ (H=8.4) and w₃₁ (H=5.2) are the most sensitive</strong> — small perturbations to these weights cause large changes in the loss. These get quantized first with the finest possible bucket placement.</div>
+  </div>
+
+  <!-- GPTQ Step 1: Rank -->
+  <div class="sstep" id="g1" style="padding:20px 28px 16px">
+    <div class="step-title">Rank weights by Hessian — set the quantization order</div>
+    <div class="step-desc">Sort all weights by H (descending). High-H weights are quantized first — their precision matters most. Low-H weights go last and can tolerate coarser rounding.</div>
+    <table class="wtable">
+      <thead><tr><th>Weight</th><th>fp32 value</th><th>Hessian H</th><th>Priority</th><th>Sensitivity</th></tr></thead>
+      <tbody>
+        <tr style="background:#EEEDFE22">
+          <td><strong>w₁₁</strong></td><td>0.43</td>
+          <td><span class="tag" style="background:#EEEDFE;color:#3C3489">H = 8.4</span></td>
+          <td><strong>① First</strong></td>
+          <td style="color:#534AB7">Very high — quantize with finest care</td>
+        </tr>
+        <tr style="background:#EEEDFE11">
+          <td><strong>w₃₁</strong></td><td>0.65</td>
+          <td><span class="tag" style="background:#EEEDFE;color:#534AB7">H = 5.2</span></td>
+          <td><strong>② Second</strong></td>
+          <td style="color:#534AB7">High — also needs careful placement</td>
+        </tr>
+        <tr>
+          <td><strong>w₂₁</strong></td><td>0.91</td>
+          <td><span class="tag" style="background:#F1EFE8;color:#5F5E5A">H = 3.1</span></td>
+          <td>③ Third</td>
+          <td style="color:#888780">Medium — absorbs error from above</td>
+        </tr>
+        <tr>
+          <td><strong>w₃₂</strong></td><td>0.38</td>
+          <td><span class="tag" style="background:#F1EFE8;color:#5F5E5A">H = 2.8</span></td>
+          <td>④ Fourth</td>
+          <td style="color:#888780">Medium</td>
+        </tr>
+        <tr>
+          <td><strong>w₁₂</strong></td><td>0.07</td>
+          <td><span class="tag" style="background:#F7F6F2;color:#aaa">H = 0.3</span></td>
+          <td>⑤ Fifth</td>
+          <td style="color:#bbb">Low — coarse rounding acceptable</td>
+        </tr>
+        <tr>
+          <td><strong>w₂₂</strong></td><td>0.02</td>
+          <td><span class="tag" style="background:#F7F6F2;color:#aaa">H = 0.1</span></td>
+          <td>⑥ Last</td>
+          <td style="color:#bbb">Very low — almost zero impact</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="insight"><b>Why order matters:</b> GPTQ quantizes greedily — one weight at a time — and the rounding error from each step gets propagated forward to remaining weights. Starting with the most important weights means subsequent compensation steps have more "budget" to absorb errors without affecting the loss much.</div>
+  </div>
+
+  <!-- GPTQ Step 2: Quantize -->
+  <div class="sstep" id="g2" style="padding:20px 28px 16px">
+    <div class="step-title">Quantize w₁₁ first — show the rounding</div>
+    <div class="step-desc">With scale s = (0.91−0.02)/15 = 0.059 and zero-point z = round(0.02/s) = 0, we map w₁₁ = 0.43 to its nearest INT4 bucket.</div>
+    <div class="nline-wrap">
+      <svg viewBox="0 0 720 175" xmlns="http://www.w3.org/2000/svg">
+        <!-- Number line -->
+        <line x1="40" y1="60" x2="680" y2="60" stroke="#ccc" stroke-width="1.5"/>
+        <!-- 16 buckets spanning 0.02 to 0.91, each 0.059 wide mapped to ~40px -->
+        <!-- bucket centers at 0.02, 0.079, 0.138 ... -->
+        <!-- pixel mapping: x = 40 + (val-0.02)/0.89 * 640 -->
+        <!-- val=0.02 → x=40, val=0.91 → x=680 -->
+        <!-- Render bucket boundaries -->
+        <line x1="40"  y1="53" x2="40"  y2="67" stroke="#D85A30" stroke-width="1"/>
+        <line x1="83"  y1="53" x2="83"  y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="125" y1="53" x2="125" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="168" y1="53" x2="168" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="211" y1="53" x2="211" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="253" y1="53" x2="253" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="296" y1="53" x2="296" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="338" y1="53" x2="338" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="381" y1="53" x2="381" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="424" y1="53" x2="424" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="466" y1="53" x2="466" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="509" y1="53" x2="509" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="552" y1="53" x2="552" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="594" y1="53" x2="594" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="637" y1="53" x2="637" y2="67" stroke="#D85A30" stroke-width="0.8" opacity="0.5"/>
+        <line x1="680" y1="53" x2="680" y2="67" stroke="#D85A30" stroke-width="1"/>
+
+        <!-- Bucket labels (selected) -->
+        <text x="40"  y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">0</text>
+        <text x="83"  y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">1</text>
+        <text x="125" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">2</text>
+        <text x="168" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">3</text>
+        <text x="211" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">4</text>
+        <text x="253" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">5</text>
+        <text x="296" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">6</text>
+        <text x="338" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">7</text>
+        <text x="381" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">8</text>
+        <text x="424" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">9</text>
+        <text x="680" y="80" text-anchor="middle" font-size="9"  fill="#aaa" font-family="-apple-system,sans-serif">15</text>
+
+        <!-- w11 actual position: (0.43-0.02)/0.89*640+40 = 334.8 ≈ 335 -->
+        <!-- INT4 = round(0.43/0.059) = round(7.28) = 7 → center at x=338 -->
+        <!-- actual float: 0.02 + 7*0.059 = 0.433 -->
+        <!-- error: 0.43 - 0.433 = -0.003 -->
+
+        <!-- Highlight bucket 7 -->
+        <rect x="296" y="50" width="42" height="22" rx="3" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+        <text x="317" y="65" text-anchor="middle" font-size="10" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">7</text>
+
+        <!-- w11 true position marker -->
+        <line x1="335" y1="35" x2="335" y2="58" stroke="#534AB7" stroke-width="2"/>
+        <circle cx="335" cy="35" r="5" fill="#534AB7"/>
+        <text x="335" y="22" text-anchor="middle" font-size="11" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">w₁₁ = 0.430</text>
+
+        <!-- bucket center marker -->
+        <circle cx="338" cy="60" r="4" fill="#1D9E75"/>
+        <text x="338" y="100" text-anchor="middle" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">INT4=7 → 0.433</text>
+
+        <!-- error arrow -->
+        <line x1="335" y1="108" x2="337" y2="108" stroke="#E24B4A" stroke-width="2"/>
+        <text x="310" y="122" text-anchor="middle" font-size="11" font-weight="600" fill="#E24B4A" font-family="-apple-system,sans-serif">δ = −0.003</text>
+        <text x="310" y="136" text-anchor="middle" font-size="11" fill="#A32D2D" font-family="-apple-system,sans-serif">(very small — good bucket fit)</text>
+
+        <!-- scale annotation -->
+        <text x="40"  y="150" font-size="11" fill="#888" font-family="-apple-system,sans-serif">0.02</text>
+        <text x="680" y="150" font-size="11" fill="#888" font-family="-apple-system,sans-serif">0.91</text>
+        <text x="360" y="150" text-anchor="middle" font-size="11" fill="#888" font-family="-apple-system,sans-serif">s = 0.059 per bucket</text>
+      </svg>
+    </div>
+    <div class="caption">w₁₁ = 0.430 maps to INT4 bucket 7 (reconstructed as 0.433). <strong>Rounding error δ = −0.003</strong> — tiny because the weight range is compact and the scale is fine. This error now gets propagated to the next weight (w₃₁) for compensation.</div>
+  </div>
+
+  <!-- GPTQ Step 3: Compensate -->
+  <div class="sstep" id="g3" style="padding:20px 28px 16px">
+    <div class="step-title">Compensate — push the error into w₃₁</div>
+    <div class="step-desc">The rounding error δ from quantizing w₁₁ is "pushed" to w₃₁ (the next highest-H weight) by adjusting its value before quantizing it. The adjustment is scaled by the relative Hessian values.</div>
+    <div class="nline-wrap" style="font-size:13px;line-height:1.8">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600">BEFORE compensation</div>
+          <div style="background:white;border-radius:6px;padding:10px 14px;border:1px solid var(--border);font-family:monospace;font-size:13px;line-height:2">
+            w₁₁ error δ = <span style="color:#E24B4A;font-weight:600">−0.003</span><br/>
+            w₃₁ original = <span style="color:#534AB7">0.650</span><br/>
+            H(w₁₁) = 8.4, &nbsp;H(w₃₁) = 5.2
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600">AFTER compensation</div>
+          <div style="background:white;border-radius:6px;padding:10px 14px;border:1px solid var(--border);font-family:monospace;font-size:13px;line-height:2">
+            adjustment = δ × H(w₁₁)/H(w₃₁)<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= −0.003 × 8.4/5.2<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <span style="color:#E24B4A">−0.005</span><br/>
+            w₃₁ adjusted = 0.650 <span style="color:#E24B4A">− 0.005</span> = <span style="color:#1D9E75;font-weight:600">0.645</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">The compensation slightly shifts w₃₁ before quantizing it. When w₃₁ is then rounded to its nearest INT4 bucket, the rounding error from w₁₁ has been partially absorbed. <strong>The layer's total output error is minimized</strong>, not just each individual weight's error.</div>
+    <div class="insight"><b>This is what makes GPTQ "second-order":</b> It's not just minimizing per-weight rounding error. It's minimizing the layer's output error, accounting for the curvature of the loss surface (the Hessian). Naïve INT4 minimizes each weight in isolation; GPTQ minimizes the system jointly.</div>
+  </div>
+
+  <!-- GPTQ Step 4: Result -->
+  <div class="sstep" id="g4" style="padding:20px 28px 16px">
+    <div class="step-title">Post-quantization — GPTQ result network</div>
+    <div class="step-desc">All 6 weights are now stored as INT4 integers (0–15). The network edges show both the INT4 value and the reconstructed float. Error is small everywhere because GPTQ compensated each step.</div>
+    <div class="net-wrap">
+      <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="agr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+        </defs>
+        <!-- edges -->
+        <line x1="138" y1="90"  x2="282" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#agr)"/>
+        <line x1="138" y1="90"  x2="282" y2="170" stroke="#ddd" stroke-width="2" marker-end="url(#agr)"/>
+        <line x1="138" y1="170" x2="282" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#agr)"/>
+        <line x1="138" y1="170" x2="282" y2="170" stroke="#ddd" stroke-width="2" marker-end="url(#agr)"/>
+        <line x1="345" y1="90"  x2="498" y2="130" stroke="#ddd" stroke-width="2" marker-end="url(#agr)"/>
+        <line x1="345" y1="170" x2="498" y2="130" stroke="#ddd" stroke-width="2" marker-end="url(#agr)"/>
+
+        <!-- w11: INT4=7, recon=0.433, err=-0.003 — good -->
+        <rect x="172" y="65" width="76" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="210" y="79" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:7 → 0.433</text>
+        <text x="210" y="92" text-anchor="middle" font-size="10" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.003 ✓</text>
+
+        <!-- w12: INT4=1, recon=0.079, err=+0.009 — small -->
+        <rect x="165" y="104" width="76" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="203" y="118" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:1 → 0.079</text>
+        <text x="203" y="131" text-anchor="middle" font-size="10" fill="#1D9E75" font-family="-apple-system,sans-serif">err: +0.009 ✓</text>
+
+        <!-- w21: INT4=15, recon=0.905, err=-0.005 (compensated) -->
+        <rect x="165" y="142" width="76" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="203" y="156" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:15→ 0.905</text>
+        <text x="203" y="169" text-anchor="middle" font-size="10" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.005 ✓</text>
+
+        <!-- w22: INT4=0, recon=0.020, err=0.000 -->
+        <rect x="172" y="170" width="76" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="210" y="184" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:0 → 0.020</text>
+        <text x="210" y="197" text-anchor="middle" font-size="10" fill="#1D9E75" font-family="-apple-system,sans-serif">err: 0.000 ✓</text>
+
+        <!-- w31: INT4=11, recon=0.649 (compensated from 0.645) -->
+        <rect x="372" y="92" width="76" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="410" y="106" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:11→ 0.649</text>
+        <text x="410" y="119" text-anchor="middle" font-size="10" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.001 ✓</text>
+
+        <!-- w32: INT4=6, recon=0.374 -->
+        <rect x="372" y="145" width="76" height="34" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="410" y="159" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:6 → 0.374</text>
+        <text x="410" y="172" text-anchor="middle" font-size="10" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.006 ✓</text>
+
+        <!-- nodes -->
+        <circle cx="110" cy="90"  r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₁</text>
+        <circle cx="110" cy="170" r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₂</text>
+        <circle cx="312" cy="90"  r="26" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="312" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₁</text>
+        <circle cx="312" cy="170" r="26" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="312" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₂</text>
+        <circle cx="524" cy="130" r="26" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="524" y="134" text-anchor="middle" font-size="12" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">ŷ</text>
+
+        <!-- summary box -->
+        <rect x="600" y="55" width="150" height="140" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="675" y="76" text-anchor="middle" font-size="11" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">GPTQ result</text>
+        <line x1="600" y1="84" x2="750" y2="84" stroke="#1D9E75" stroke-width="0.5" opacity="0.4"/>
+        <text x="618" y="101" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">Max error: 0.009</text>
+        <text x="618" y="118" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">Avg error: 0.004</text>
+        <text x="618" y="135" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">All INT4 ✓</text>
+        <text x="618" y="155" font-size="11" fill="#085041" font-family="-apple-system,sans-serif">Output ŷ:</text>
+        <text x="618" y="172" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">0.809 (was 0.81)</text>
+      </svg>
+    </div>
+    <div class="caption">All weights are INT4. Every edge shows the integer bucket, reconstructed float, and rounding error. <strong>The output prediction barely changed: 0.809 vs original 0.810</strong>. Error compensation across weights is what makes this work.</div>
+  </div>
+
+  <div class="step-nav">
+    <button class="btn" id="gptq-prev" onclick="gStep(gptqCur-1)" disabled>← Prev</button>
+    <span class="step-counter" id="gptq-counter">Step 1 of 5</span>
+    <button class="btn primary" id="gptq-next" onclick="gStep(gptqCur+1)">Next →</button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     SMOOTHQUANT CARD
+═══════════════════════════════════════ -->
+<div class="card" id="sq-card">
+  <div class="card-hdr">
+    <h2 style="color:var(--coral-dk)">SmoothQuant — step by step</h2>
+    <p>Migrate activation outliers into weights using a per-channel scale factor, then quantize both to INT8.</p>
+  </div>
+
+  <div class="method-tabs">
+    <button class="mtab active" onclick="sStep(0)">① Spot outlier</button>
+    <button class="mtab" onclick="sStep(1)">② Compute s</button>
+    <button class="mtab" onclick="sStep(2)">③ Transform</button>
+    <button class="mtab" onclick="sStep(3)">④ Quantize</button>
+    <button class="mtab" onclick="sStep(4)">⑤ Result</button>
+  </div>
+
+  <!-- SQ Step 0 -->
+  <div class="sstep active" id="s0" style="padding:20px 28px 16px">
+    <div class="step-title">Identify the activation outlier</div>
+    <div class="step-desc">During a calibration forward pass, record the actual activation values flowing through the network. One activation dimension (channel 3, corresponding to h₂→ŷ) is consistently large: 48.2 vs typical values of 0.5–1.5.</div>
+    <div class="net-wrap">
+      <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="as0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+          <marker id="as0r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+        </defs>
+        <!-- normal edges -->
+        <line x1="138" y1="90"  x2="282" y2="90"  stroke="#ddd" stroke-width="1.5" marker-end="url(#as0)"/>
+        <line x1="138" y1="90"  x2="282" y2="170" stroke="#ddd" stroke-width="1.5" marker-end="url(#as0)"/>
+        <line x1="138" y1="170" x2="282" y2="90"  stroke="#ddd" stroke-width="1.5" marker-end="url(#as0)"/>
+        <line x1="138" y1="170" x2="282" y2="170" stroke="#ddd" stroke-width="1.5" marker-end="url(#as0)"/>
+        <!-- normal edge to h1→out -->
+        <line x1="345" y1="90"  x2="498" y2="130" stroke="#ddd" stroke-width="1.5" marker-end="url(#as0)"/>
+        <!-- OUTLIER edge h2→out (thick red) -->
+        <line x1="345" y1="170" x2="498" y2="130" stroke="#D85A30" stroke-width="3" marker-end="url(#as0r)"/>
+
+        <!-- activation annotation on outlier edge -->
+        <rect x="378" y="166" width="90" height="28" rx="5" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="423" y="177" text-anchor="middle" font-size="11" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">activation = 48.2</text>
+        <text x="423" y="177" text-anchor="middle" font-size="10" fill="#993C1D" font-family="-apple-system,sans-serif">⚠ outlier!</text>
+
+        <!-- normal activation annotation -->
+        <rect x="372" y="90" width="72" height="24" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="408" y="106" text-anchor="middle" font-size="11" fill="#085041" font-family="-apple-system,sans-serif">act = 0.74</text>
+
+        <!-- nodes -->
+        <circle cx="110" cy="90"  r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₁</text>
+        <circle cx="110" cy="170" r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₂</text>
+        <circle cx="312" cy="90"  r="26" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="312" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₁</text>
+        <circle cx="312" cy="170" r="26" fill="#FAECE7" stroke="#D85A30" stroke-width="2"/>
+        <text x="312" y="168" text-anchor="middle" font-size="11" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">h₂</text>
+        <text x="312" y="182" text-anchor="middle" font-size="9" fill="#D85A30" font-family="-apple-system,sans-serif">⚠ outlier</text>
+        <circle cx="524" cy="130" r="26" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="524" y="134" text-anchor="middle" font-size="12" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">ŷ</text>
+
+        <!-- problem callout -->
+        <rect x="598" y="55" width="154" height="100" rx="8" fill="#FCEBEB" stroke="#E24B4A" stroke-width="1"/>
+        <text x="675" y="74" text-anchor="middle" font-size="11" font-weight="600" fill="#501313" font-family="-apple-system,sans-serif">The problem</text>
+        <text x="675" y="92" text-anchor="middle" font-size="11" fill="#A32D2D" font-family="-apple-system,sans-serif">act range: 0–48.2</text>
+        <text x="675" y="109" text-anchor="middle" font-size="11" fill="#A32D2D" font-family="-apple-system,sans-serif">INT8 scale = 48.2/127</text>
+        <text x="675" y="126" text-anchor="middle" font-size="11" fill="#A32D2D" font-family="-apple-system,sans-serif">= 0.380 per bucket</text>
+        <text x="675" y="143" text-anchor="middle" font-size="11" fill="#993C1D" font-family="-apple-system,sans-serif">Normal acts → 1–4 buckets!</text>
+      </svg>
+    </div>
+    <div class="caption">The h₂ activation (48.2) is ~65× larger than the typical h₁ activation (0.74). If we quantize activations naively to INT8, the scale becomes 0.380 — meaning normal activations only span 1–4 of the 255 available INT8 buckets. <strong>All precision is wasted on the empty range 1.5 → 48.2.</strong></div>
+  </div>
+
+  <!-- SQ Step 1 -->
+  <div class="sstep" id="s1" style="padding:20px 28px 16px">
+    <div class="step-title">Compute per-channel smooth factor s</div>
+    <div class="step-desc">For each weight channel, compute s = (max |activation|)^α where α ∈ [0,1] controls how much difficulty to move from activations to weights. α=0.5 (geometric mean) works well in practice.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="background:var(--bg2);border-radius:8px;padding:14px 16px;border:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:10px">Channel h₁ → ŷ  (normal)</div>
+        <div style="font-size:13px;color:var(--text2);line-height:2;font-family:monospace">
+          max |act| = 0.74<br/>
+          s₁ = 0.74<sup>0.5</sup> = <strong style="color:#1D9E75">0.860</strong><br/>
+          x̂ = x / 0.860 &nbsp;← mild shift<br/>
+          Ŵ = W × 0.860 ← mild shift
+        </div>
+      </div>
+      <div style="background:#FAECE7;border-radius:8px;padding:14px 16px;border:1px solid #F0997B">
+        <div style="font-size:11px;font-weight:600;color:var(--coral-dk);margin-bottom:10px">Channel h₂ → ŷ  (outlier)</div>
+        <div style="font-size:13px;color:var(--text2);line-height:2;font-family:monospace">
+          max |act| = 48.2<br/>
+          s₂ = 48.2<sup>0.5</sup> = <strong style="color:#D85A30">6.943</strong><br/>
+          x̂ = x / 6.943 &nbsp;← big shift<br/>
+          Ŵ = W × 6.943 ← big shift
+        </div>
+      </div>
+    </div>
+    <div class="caption">The smooth factor s is channel-specific. For the normal channel, s ≈ 0.86 — a mild adjustment. For the outlier channel, s = 6.94 — a large shift that will shrink the activation from 48.2 down to 6.94, making it much easier to quantize.</div>
+  </div>
+
+  <!-- SQ Step 2 -->
+  <div class="sstep" id="s2" style="padding:20px 28px 16px">
+    <div class="step-title">Apply the transform — x̂ = x/s, Ŵ = W×s</div>
+    <div class="step-desc">Divide each activation by its channel's s, multiply each weight by s. The output y = x·W is unchanged because (x/s)·(W×s) = x·W. But now both tensors are quantization-friendly.</div>
+    <table class="wtable">
+      <thead><tr><th>Channel</th><th>Before: act / weight</th><th>s factor</th><th>After: act / weight</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>h₁→ŷ (w₃₁)</td>
+          <td>act=0.74 / w=0.65</td>
+          <td>s₁ = 0.860</td>
+          <td>act=<strong>0.860</strong> / w=<strong>0.559</strong></td>
+          <td><span class="tag" style="background:#E1F5EE;color:#085041">mild</span></td>
+        </tr>
+        <tr style="background:#FAECE722">
+          <td>h₂→ŷ (w₃₂)</td>
+          <td>act=<span style="color:#D85A30;font-weight:600">48.2</span> / w=0.38</td>
+          <td>s₂ = <strong style="color:#D85A30">6.943</strong></td>
+          <td>act=<strong style="color:#1D9E75">6.943</strong> / w=<strong>2.638</strong></td>
+          <td><span class="tag" style="background:#FAECE7;color:#993C1D">outlier tamed</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="nline-wrap">
+      <svg viewBox="0 0 700 110" xmlns="http://www.w3.org/2000/svg">
+        <!-- Before number line -->
+        <text x="10" y="22" font-size="11" font-weight="600" fill="#1a1a18" font-family="-apple-system,sans-serif">Before (act range):</text>
+        <line x1="10" y1="38" x2="688" y2="38" stroke="#ccc" stroke-width="1.5"/>
+        <!-- normal act at 0.74 — x = 10 + 0.74/48.2*678 = 10+10.4 = ~20 -->
+        <circle cx="20"  cy="38" r="5" fill="#1D9E75"/>
+        <text x="20"  y="26" text-anchor="middle" font-size="9" fill="#0F6E56" font-family="-apple-system,sans-serif">0.74</text>
+        <!-- outlier at 48.2 — far right -->
+        <circle cx="685" cy="38" r="7" fill="#D85A30"/>
+        <text x="685" y="26" text-anchor="middle" font-size="9" fill="#993C1D" font-family="-apple-system,sans-serif">48.2</text>
+        <!-- INT8 scale annotation -->
+        <rect x="200" y="44" width="200" height="18" rx="4" fill="#FCEBEB" stroke="#E24B4A" stroke-width="0.8"/>
+        <text x="300" y="56" text-anchor="middle" font-size="10" fill="#A32D2D" font-family="-apple-system,sans-serif">INT8 scale = 48.2/127 = 0.380 — wasteful!</text>
+
+        <!-- After number line -->
+        <text x="10" y="84" font-size="11" font-weight="600" fill="#1a1a18" font-family="-apple-system,sans-serif">After smoothing (act range):</text>
+        <line x1="10" y1="98" x2="688" y2="98" stroke="#ccc" stroke-width="1.5"/>
+        <!-- act/s: 0.74/0.86=0.860, 48.2/6.943=6.943; max=6.943 → x=688 -->
+        <!-- 0.860: x = 10 + 0.860/6.943*678 = 10+84 = 94 -->
+        <circle cx="94"  cy="98" r="5" fill="#1D9E75"/>
+        <text x="94"  y="88" text-anchor="middle" font-size="9" fill="#0F6E56" font-family="-apple-system,sans-serif">0.860</text>
+        <circle cx="688" cy="98" r="5" fill="#1D9E75"/>
+        <text x="688" y="88" text-anchor="middle" font-size="9" fill="#085041" font-family="-apple-system,sans-serif">6.943</text>
+        <rect x="200" y="103" width="200" height="18" rx="4" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="300" y="115" text-anchor="middle" font-size="10" fill="#085041" font-family="-apple-system,sans-serif">INT8 scale = 6.943/127 = 0.055 — 7× better!</text>
+      </svg>
+    </div>
+    <div class="caption">The activation range shrank from 0–48.2 down to 0–6.943. The INT8 scale improved 7×. <strong>Both activations and weights can now be safely quantized to INT8</strong>, with the output unchanged mathematically.</div>
+  </div>
+
+  <!-- SQ Step 3 -->
+  <div class="sstep" id="s3" style="padding:20px 28px 16px">
+    <div class="step-title">Quantize both to INT8 — W8A8</div>
+    <div class="step-desc">Now quantize the smoothed activations x̂ and the scaled weights Ŵ both to INT8. Since both tensors are well-behaved, precision is high. The final matmul runs as integer arithmetic on hardware.</div>
+    <table class="wtable">
+      <thead><tr><th>Quantity</th><th>Smoothed value</th><th>INT8 bucket</th><th>Reconstructed</th><th>Error</th></tr></thead>
+      <tbody>
+        <tr><td>act h₁ (x̂₁)</td><td>0.860</td><td>INT8: 16</td><td>0.875</td><td class="good">+0.015</td></tr>
+        <tr style="background:#FAECE722"><td>act h₂ (x̂₂)</td><td>6.943</td><td>INT8: 127</td><td>6.985</td><td class="good">+0.042</td></tr>
+        <tr><td>weight Ŵ₃₁</td><td>0.559</td><td>INT8: 18</td><td>0.567</td><td class="good">+0.008</td></tr>
+        <tr style="background:#FAECE722"><td>weight Ŵ₃₂</td><td>2.638</td><td>INT8: 85</td><td>2.646</td><td class="good">+0.008</td></tr>
+      </tbody>
+    </table>
+    <div class="insight"><b>W8A8 unlocks hardware speedups:</b> NVIDIA Ampere and Hopper GPUs have INT8 tensor cores that run matrix multiplications 2–4× faster than FP16. With SmoothQuant taming the activations, the entire attention and FFN matmul can run in INT8 — not just weight storage.</div>
+  </div>
+
+  <!-- SQ Step 4: Result -->
+  <div class="sstep" id="s4" style="padding:20px 28px 16px">
+    <div class="step-title">Post-quantization — SmoothQuant result network</div>
+    <div class="step-desc">Edges show INT8 integer values (not INT4 — SmoothQuant targets W8A8). The weights absorbed the outlier scale; activations flow as INT8. Both with small error everywhere.</div>
+    <div class="net-wrap">
+      <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="asr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+        </defs>
+        <!-- edges -->
+        <line x1="138" y1="90"  x2="282" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#asr)"/>
+        <line x1="138" y1="90"  x2="282" y2="170" stroke="#ddd" stroke-width="2" marker-end="url(#asr)"/>
+        <line x1="138" y1="170" x2="282" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#asr)"/>
+        <line x1="138" y1="170" x2="282" y2="170" stroke="#ddd" stroke-width="2" marker-end="url(#asr)"/>
+        <line x1="345" y1="90"  x2="498" y2="130" stroke="#ddd" stroke-width="2" marker-end="url(#asr)"/>
+        <line x1="345" y1="170" x2="498" y2="130" stroke="#ddd" stroke-width="2" marker-end="url(#asr)"/>
+
+        <!-- i→h weights (unchanged in SmoothQuant — only h→o smoothed) -->
+        <rect x="172" y="68" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="208" y="80" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT8:55 → 0.429</text>
+        <text x="208" y="91" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.001 ✓</text>
+
+        <rect x="164" y="108" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="200" y="120" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT8:9 → 0.071</text>
+        <text x="200" y="131" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: +0.001 ✓</text>
+
+        <rect x="164" y="140" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="200" y="152" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT8:116→ 0.908</text>
+        <text x="200" y="163" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.002 ✓</text>
+
+        <rect x="172" y="172" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="208" y="184" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT8:3 → 0.024</text>
+        <text x="208" y="195" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: +0.004 ✓</text>
+
+        <!-- smoothed h→o weights (Ŵ, INT8) -->
+        <rect x="370" y="90" width="76" height="34" rx="5" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1"/>
+        <text x="408" y="104" text-anchor="middle" font-size="10" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">Ŵ: INT8:18→0.567</text>
+        <text x="408" y="118" text-anchor="middle" font-size="9" fill="#534AB7" font-family="-apple-system,sans-serif">s=0.86 absorbed</text>
+
+        <rect x="370" y="143" width="76" height="34" rx="5" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1"/>
+        <text x="408" y="157" text-anchor="middle" font-size="10" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">Ŵ: INT8:85→2.646</text>
+        <text x="408" y="171" text-anchor="middle" font-size="9" fill="#534AB7" font-family="-apple-system,sans-serif">s=6.94 absorbed</text>
+
+        <!-- act flow labels -->
+        <rect x="330" y="54" width="60" height="22" rx="4" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="360" y="69" text-anchor="middle" font-size="10" fill="#085041" font-family="-apple-system,sans-serif">act: INT8</text>
+        <rect x="330" y="194" width="60" height="22" rx="4" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="360" y="209" text-anchor="middle" font-size="10" fill="#085041" font-family="-apple-system,sans-serif">act: INT8</text>
+
+        <!-- nodes -->
+        <circle cx="110" cy="90"  r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₁</text>
+        <circle cx="110" cy="170" r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₂</text>
+        <circle cx="312" cy="90"  r="26" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="312" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₁</text>
+        <circle cx="312" cy="170" r="26" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="312" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">h₂</text>
+        <circle cx="524" cy="130" r="26" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="524" y="134" text-anchor="middle" font-size="12" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">ŷ</text>
+
+        <!-- summary -->
+        <rect x="600" y="50" width="150" height="140" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+        <text x="675" y="70" text-anchor="middle" font-size="11" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">SmoothQuant</text>
+        <line x1="600" y1="78" x2="750" y2="78" stroke="#1D9E75" stroke-width="0.5" opacity="0.4"/>
+        <text x="618" y="96" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">Format: INT8</text>
+        <text x="618" y="113" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">Weights: INT8 ✓</text>
+        <text x="618" y="130" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">Activations: INT8 ✓</text>
+        <text x="618" y="150" font-size="11" fill="#085041" font-family="-apple-system,sans-serif">Output ŷ:</text>
+        <text x="618" y="167" font-size="12" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">0.808 (was 0.81)</text>
+        <text x="618" y="182" font-size="11" fill="#0F6E56" font-family="-apple-system,sans-serif">W8A8 matmul ✓</text>
+      </svg>
+    </div>
+    <div class="caption">Purple edges show the smoothed output-layer weights (Ŵ) — they absorbed the outlier scale. <strong>Both weights and activations are INT8</strong>. The full matmul now runs as integer arithmetic. Output prediction: 0.808 vs original 0.810.</div>
+  </div>
+
+  <div class="step-nav">
+    <button class="btn" id="sq-prev" onclick="sStep(sqCur-1)" disabled>← Prev</button>
+    <span class="step-counter" id="sq-counter">Step 1 of 5</span>
+    <button class="btn primary" id="sq-next" onclick="sStep(sqCur+1)">Next →</button>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     AWQ CARD
+═══════════════════════════════════════ -->
+<div class="card" id="awq-card">
+  <div class="card-hdr">
+    <h2 style="color:var(--amber-dk)">AWQ — step by step</h2>
+    <p>Find the 1% of weight channels that matter most (salient), scale them up before INT4 quantization so they get finer buckets.</p>
+  </div>
+
+  <div class="method-tabs">
+    <button class="mtab active" onclick="aStep(0)">① Score channels</button>
+    <button class="mtab" onclick="aStep(1)">② Find salient</button>
+    <button class="mtab" onclick="aStep(2)">③ Scale up</button>
+    <button class="mtab" onclick="aStep(3)">④ Quantize</button>
+    <button class="mtab" onclick="aStep(4)">⑤ Result</button>
+  </div>
+
+  <!-- AWQ Step 0 -->
+  <div class="sstep active" id="a0" style="padding:20px 28px 16px">
+    <div class="step-title">Score each weight channel by activation magnitude</div>
+    <div class="step-desc">Run a calibration forward pass and record the average absolute activation for each hidden-layer channel. The idea: if a channel's activation is always large, its weight contributes a lot to the output — and rounding errors in that weight get amplified.</div>
+    <div class="net-wrap">
+      <svg viewBox="0 0 760 270" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="aa0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+        </defs>
+        <!-- edges -->
+        <line x1="138" y1="90"  x2="282" y2="90"  stroke="#ddd" stroke-width="1.5" marker-end="url(#aa0)"/>
+        <line x1="138" y1="90"  x2="282" y2="170" stroke="#ddd" stroke-width="1.5" marker-end="url(#aa0)"/>
+        <line x1="138" y1="170" x2="282" y2="90"  stroke="#ddd" stroke-width="1.5" marker-end="url(#aa0)"/>
+        <line x1="138" y1="170" x2="282" y2="170" stroke="#ddd" stroke-width="1.5" marker-end="url(#aa0)"/>
+        <line x1="345" y1="90"  x2="498" y2="130" stroke="#ddd" stroke-width="1.5" marker-end="url(#aa0)"/>
+        <line x1="345" y1="170" x2="498" y2="130" stroke="#EF9F27" stroke-width="3" marker-end="url(#aa0)"/>
+
+        <!-- activation magnitude bars under each hidden node -->
+        <!-- h1: avg|act|=0.65 — score bar below node -->
+        <rect x="286" y="120" width="52" height="10" rx="3" fill="#e0e0d8"/>
+        <rect x="286" y="120" width="34" height="10" rx="3" fill="#5F5E5A"/>
+        <text x="312" y="143" text-anchor="middle" font-size="10" fill="#888" font-family="-apple-system,sans-serif">avg|h₁|=0.65</text>
+
+        <!-- h2: avg|act|=1.82 — higher bar -->
+        <rect x="286" y="190" width="52" height="10" rx="3" fill="#e0e0d8"/>
+        <rect x="286" y="190" width="52" height="10" rx="3" fill="#EF9F27"/>
+        <text x="312" y="213" text-anchor="middle" font-size="10" font-weight="600" fill="#633806" font-family="-apple-system,sans-serif">avg|h₂|=1.82 ★</text>
+
+        <!-- annotation on h2→out edge -->
+        <rect x="378" y="156" width="94" height="28" rx="5" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1.5"/>
+        <text x="425" y="167" text-anchor="middle" font-size="11" font-weight="600" fill="#412402" font-family="-apple-system,sans-serif">output error risk:</text>
+        <text x="425" y="179" text-anchor="middle" font-size="11" fill="#633806" font-family="-apple-system,sans-serif">δw × 1.82 ← amplified</text>
+
+        <!-- annotation on h1→out edge -->
+        <rect x="368" y="96" width="80" height="22" rx="5" fill="#F7F6F2" stroke="#ddd" stroke-width="1"/>
+        <text x="408" y="111" text-anchor="middle" font-size="11" fill="#888" font-family="-apple-system,sans-serif">δw × 0.65 ← ok</text>
+
+        <!-- nodes -->
+        <circle cx="110" cy="90"  r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₁</text>
+        <circle cx="110" cy="170" r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₂</text>
+        <circle cx="312" cy="90"  r="26" fill="#F7F6F2" stroke="#ccc" stroke-width="1.5"/>
+        <text x="312" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#5F5E5A" font-family="-apple-system,sans-serif">h₁</text>
+        <circle cx="312" cy="170" r="26" fill="#FAEEDA" stroke="#EF9F27" stroke-width="2"/>
+        <text x="312" y="168" text-anchor="middle" font-size="12" font-weight="600" fill="#412402" font-family="-apple-system,sans-serif">h₂</text>
+        <text x="312" y="183" text-anchor="middle" font-size="9" fill="#BA7517" font-family="-apple-system,sans-serif">salient</text>
+        <circle cx="524" cy="130" r="26" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="524" y="134" text-anchor="middle" font-size="12" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">ŷ</text>
+      </svg>
+    </div>
+    <div class="caption">h₂ has avg activation 1.82 vs h₁'s 0.65. A rounding error δw in w₃₂ (h₂→ŷ) causes output error of δw × 1.82 — <strong>2.8× larger than the same error in w₃₁</strong>. Channel h₂ is flagged as salient.</div>
+  </div>
+
+  <!-- AWQ Step 1 -->
+  <div class="sstep" id="a1" style="padding:20px 28px 16px">
+    <div class="step-title">Rank channels — identify the salient ones</div>
+    <div class="step-desc">Sort weight channels by average activation magnitude. The top 1% are "salient" — their quantization errors will be amplified the most in the output. For our tiny network, channel h₂ is clearly the one to protect.</div>
+    <table class="wtable">
+      <thead><tr><th>Channel</th><th>Weight</th><th>avg |activation|</th><th>Output error risk</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr style="background:#FAEEDA33">
+          <td><strong>h₂ → ŷ</strong></td>
+          <td>w₃₂ = 0.38</td>
+          <td><strong style="color:#BA7517">1.82</strong> &nbsp;★ highest</td>
+          <td>δw₃₂ × 1.82 — amplified</td>
+          <td><span class="tag" style="background:#FAEEDA;color:#412402">Salient — protect</span></td>
+        </tr>
+        <tr>
+          <td>h₁ → ŷ</td>
+          <td>w₃₁ = 0.65</td>
+          <td>0.65</td>
+          <td>δw₃₁ × 0.65 — moderate</td>
+          <td><span class="tag" style="background:#F7F6F2;color:#888">Normal</span></td>
+        </tr>
+        <tr>
+          <td>x₁ → h₁</td>
+          <td>w₁₁ = 0.43</td>
+          <td>0.58</td>
+          <td>moderate</td>
+          <td><span class="tag" style="background:#F7F6F2;color:#888">Normal</span></td>
+        </tr>
+        <tr>
+          <td>x₂ → h₂</td>
+          <td>w₂₁ = 0.91</td>
+          <td>0.52</td>
+          <td>moderate</td>
+          <td><span class="tag" style="background:#F7F6F2;color:#888">Normal</span></td>
+        </tr>
+        <tr>
+          <td>x₁ → h₂</td>
+          <td>w₁₂ = 0.07</td>
+          <td>0.41</td>
+          <td>low</td>
+          <td><span class="tag" style="background:#F7F6F2;color:#888">Normal</span></td>
+        </tr>
+        <tr>
+          <td>x₂ → h₁</td>
+          <td>w₂₂ = 0.02</td>
+          <td>0.38</td>
+          <td>lowest</td>
+          <td><span class="tag" style="background:#F7F6F2;color:#888">Normal</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="insight"><b>Why this works so fast:</b> Finding salient channels requires just one calibration forward pass to record activation statistics. No Hessian computation, no iterative optimization. That's why AWQ runs in minutes vs GPTQ's hours — same idea (protect important weights), massively simpler implementation.</div>
+  </div>
+
+  <!-- AWQ Step 2 -->
+  <div class="sstep" id="a2" style="padding:20px 28px 16px">
+    <div class="step-title">Scale up the salient channel before quantizing</div>
+    <div class="step-desc">Multiply w₃₂ (the salient weight) by a scale factor s > 1 before quantizing. This forces it to occupy more of the INT4 range, giving it finer bucket resolution. After quantizing, divide the output by s to compensate.</div>
+    <div class="nline-wrap">
+      <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Both weights on same number line, showing bucket allocation -->
+        <text x="10" y="22" font-size="11" font-weight="600" fill="#1a1a18" font-family="-apple-system,sans-serif">Without AWQ — naive INT4:</text>
+
+        <!-- shared scale: max(0.65, 0.38) = 0.65 padded to 0.02..0.91 → same as before -->
+        <line x1="10" y1="45" x2="690" y2="45" stroke="#ccc" stroke-width="1.5"/>
+        <!-- buckets -->
+        <rect x="10"  y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="53"  y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="96"  y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="139" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="182" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="225" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="268" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="311" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="354" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="397" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <rect x="440" y="50" width="42" height="14" rx="2" fill="#F1EFE8" stroke="#aaa" stroke-width="0.5"/>
+        <!-- w31=0.65: x=10+(0.65-0.02)/0.89*680=10+481=491 — use bucket 10 -->
+        <rect x="440" y="46" width="42" height="22" rx="3" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="461" y="61" text-anchor="middle" font-size="9" fill="#085041" font-family="-apple-system,sans-serif">w₃₁</text>
+        <!-- w32=0.38: x=10+(0.38-0.02)/0.89*680=10+275=285 — bucket 6 -->
+        <rect x="268" y="46" width="42" height="22" rx="3" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1.5"/>
+        <text x="289" y="61" text-anchor="middle" font-size="9" fill="#412402" font-family="-apple-system,sans-serif">w₃₂</text>
+        <text x="350" y="80" text-anchor="middle" font-size="10" fill="#888" font-family="-apple-system,sans-serif">Both share the same bucket grid — w₃₂ gets no special treatment</text>
+
+        <!-- AFTER: AWQ scales w32 up -->
+        <text x="10" y="106" font-size="11" font-weight="600" fill="#1a1a18" font-family="-apple-system,sans-serif">With AWQ — w₃₂ scaled up by s=2.0 before quantizing:</text>
+        <line x1="10" y1="128" x2="690" y2="128" stroke="#ccc" stroke-width="1.5"/>
+
+        <!-- w32 scaled: 0.38 × 2 = 0.76 → now in its own quantization group -->
+        <!-- separate group for salient channel with its own scale -->
+        <!-- Group 1 (normal): 0..0.65 -->
+        <rect x="10"  y="133" width="36" height="14" rx="2" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+        <rect x="47"  y="133" width="36" height="14" rx="2" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+        <rect x="84"  y="133" width="36" height="14" rx="2" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+        <rect x="121" y="133" width="36" height="14" rx="2" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+        <rect x="158" y="133" width="36" height="14" rx="2" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+        <rect x="195" y="133" width="36" height="14" rx="2" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"/>
+        <!-- w31 in group 1 -->
+        <rect x="158" y="129" width="36" height="22" rx="3" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+        <text x="176" y="144" text-anchor="middle" font-size="9" fill="#085041" font-family="-apple-system,sans-serif">w₃₁</text>
+
+        <!-- Group 2 (salient, own scale): 0..0.76 mapped to 0..1.52 expanded range -->
+        <rect x="360" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <rect x="397" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <rect x="434" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <rect x="471" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <rect x="508" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <rect x="545" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <rect x="582" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <rect x="619" y="133" width="36" height="14" rx="2" fill="#FAEEDA" stroke="#EF9F27" stroke-width="0.5"/>
+        <!-- scaled w32 = 0.76 → lands near end of its own range -->
+        <rect x="619" y="129" width="36" height="22" rx="3" fill="#FAEEDA" stroke="#EF9F27" stroke-width="2"/>
+        <text x="637" y="144" text-anchor="middle" font-size="9" fill="#412402" font-family="-apple-system,sans-serif">w₃₂×s</text>
+
+        <text x="108" y="162" text-anchor="middle" font-size="10" fill="#0F6E56" font-family="-apple-system,sans-serif">w₃₁ group: fine buckets</text>
+        <text x="510" y="162" text-anchor="middle" font-size="10" fill="#633806" font-family="-apple-system,sans-serif">w₃₂ group (scaled ×2): finer relative buckets</text>
+        <text x="350" y="190" text-anchor="middle" font-size="11" fill="#1a1a18" font-family="-apple-system,sans-serif">Salient channel uses more of the integer range → smaller rounding error → smaller amplified output error</text>
+      </svg>
+    </div>
+    <div class="caption">By scaling w₃₂ up by s=2.0 before quantization, it occupies the upper range of the bucket grid — meaning the bucket spacing is effectively halved relative to its value. <strong>After quantization, we divide the output by s, so the final computation is unchanged but the rounding error is smaller.</strong></div>
+  </div>
+
+  <!-- AWQ Step 3 -->
+  <div class="sstep" id="a3" style="padding:20px 28px 16px">
+    <div class="step-title">Quantize all weights to INT4 — salient gets better precision</div>
+    <div class="step-desc">All weights quantize to INT4. The salient weight (w₃₂) was scaled up first, so it lands in a higher bucket with finer effective precision. Its rounding error, when amplified by the activation, is much smaller.</div>
+    <table class="wtable">
+      <thead><tr><th>Weight</th><th>fp32</th><th>Pre-quant value</th><th>INT4</th><th>Reconstructed</th><th>True error</th><th>Amplified error</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>w₁₁</td><td>0.43</td><td>0.430</td>
+          <td>INT4: 7</td><td>0.433</td>
+          <td>−0.003</td><td>−0.002 (×0.58)</td>
+        </tr>
+        <tr>
+          <td>w₁₂</td><td>0.07</td><td>0.070</td>
+          <td>INT4: 1</td><td>0.079</td>
+          <td>+0.009</td><td>+0.004 (×0.41)</td>
+        </tr>
+        <tr>
+          <td>w₂₁</td><td>0.91</td><td>0.910</td>
+          <td>INT4: 15</td><td>0.905</td>
+          <td>−0.005</td><td>−0.003 (×0.52)</td>
+        </tr>
+        <tr>
+          <td>w₂₂</td><td>0.02</td><td>0.020</td>
+          <td>INT4: 0</td><td>0.020</td>
+          <td>0.000</td><td>0.000 (×0.38)</td>
+        </tr>
+        <tr>
+          <td>w₃₁</td><td>0.65</td><td>0.650</td>
+          <td>INT4: 11</td><td>0.640</td>
+          <td>−0.010</td><td>−0.007 (×0.65)</td>
+        </tr>
+        <tr style="background:#FAEEDA33">
+          <td><strong>w₃₂ ★</strong></td><td>0.38</td>
+          <td><strong style="color:#BA7517">0.760</strong> (×2.0)</td>
+          <td>INT4: 13</td>
+          <td><strong>0.387</strong> (÷2.0)</td>
+          <td class="good">−0.007</td>
+          <td class="good">−0.013 (×1.82) ↓ better!</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="caption">The salient weight w₃₂ has a true error of −0.007, similar to other weights. But without AWQ, naive quantization would give it an error of ~−0.025, amplified to −0.046 by the 1.82 activation. <strong>AWQ reduces the amplified output error for the salient channel by ~3×.</strong></div>
+  </div>
+
+  <!-- AWQ Step 4: Result -->
+  <div class="sstep" id="a4" style="padding:20px 28px 16px">
+    <div class="step-title">Post-quantization — AWQ result network</div>
+    <div class="step-desc">All weights are INT4. The salient edge (h₂→ŷ) is highlighted — it has a larger absolute weight after absorbing the scale, but a smaller effective error relative to its output contribution.</div>
+    <div class="net-wrap">
+      <svg viewBox="0 0 760 250" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="aar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#ccc" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+          <marker id="aar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M2 2L8 5L2 8" fill="none" stroke="#EF9F27" stroke-width="1.5" stroke-linecap="round"/>
+          </marker>
+        </defs>
+        <!-- normal edges -->
+        <line x1="138" y1="90"  x2="282" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#aar)"/>
+        <line x1="138" y1="90"  x2="282" y2="170" stroke="#ddd" stroke-width="2" marker-end="url(#aar)"/>
+        <line x1="138" y1="170" x2="282" y2="90"  stroke="#ddd" stroke-width="2" marker-end="url(#aar)"/>
+        <line x1="138" y1="170" x2="282" y2="170" stroke="#ddd" stroke-width="2" marker-end="url(#aar)"/>
+        <line x1="345" y1="90"  x2="498" y2="130" stroke="#ddd" stroke-width="2" marker-end="url(#aar)"/>
+        <!-- salient edge -->
+        <line x1="345" y1="170" x2="498" y2="130" stroke="#EF9F27" stroke-width="2.5" marker-end="url(#aar2)"/>
+
+        <!-- edge labels i→h -->
+        <rect x="172" y="68" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="208" y="80" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:7 → 0.433</text>
+        <text x="208" y="91" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.003 ✓</text>
+
+        <rect x="164" y="108" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="200" y="120" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:1 → 0.079</text>
+        <text x="200" y="131" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: +0.009 ✓</text>
+
+        <rect x="164" y="140" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="200" y="152" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:15→ 0.905</text>
+        <text x="200" y="163" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.005 ✓</text>
+
+        <rect x="172" y="172" width="72" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="208" y="184" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:0 → 0.020</text>
+        <text x="208" y="195" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: 0.000 ✓</text>
+
+        <!-- h→o weights -->
+        <rect x="372" y="92" width="76" height="28" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+        <text x="410" y="104" text-anchor="middle" font-size="10" font-weight="600" fill="#085041" font-family="-apple-system,sans-serif">INT4:11→ 0.640</text>
+        <text x="410" y="115" text-anchor="middle" font-size="9" fill="#1D9E75" font-family="-apple-system,sans-serif">err: −0.010 ✓</text>
+
+        <!-- salient weight label -->
+        <rect x="372" y="153" width="90" height="34" rx="5" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1.5"/>
+        <text x="417" y="165" text-anchor="middle" font-size="10" font-weight="600" fill="#412402" font-family="-apple-system,sans-serif">INT4:13 → 0.387 ★</text>
+        <text x="417" y="178" text-anchor="middle" font-size="9" fill="#BA7517" font-family="-apple-system,sans-serif">AWQ protected — err: −0.007</text>
+
+        <!-- nodes -->
+        <circle cx="110" cy="90"  r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₁</text>
+        <circle cx="110" cy="170" r="26" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+        <text x="110" y="174" text-anchor="middle" font-size="12" font-weight="600" fill="#3C3489" font-family="-apple-system,sans-serif">x₂</text>
+        <circle cx="312" cy="90"  r="26" fill="#F7F6F2" stroke="#ccc" stroke-width="1.5"/>
+        <text x="312" y="94" text-anchor="middle" font-size="12" font-weight="600" fill="#5F5E5A" font-family="-apple-system,sans-serif">h₁</text>
+        <circle cx="312" cy="170" r="26" fill="#FAEEDA" stroke="#EF9F27" stroke-width="2"/>
+        <text x="312" y="168" text-anchor="middle" font-size="12" font-weight="600" fill="#412402" font-family="-apple-system,sans-serif">h₂</text>
+        <text x="312" y="182" text-anchor="middle" font-size="9" fill="#BA7517" font-family="-apple-system,sans-serif">salient ★</text>
+        <circle cx="524" cy="130" r="26" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+        <text x="524" y="134" text-anchor="middle" font-size="12" font-weight="600" fill="#4A1B0C" font-family="-apple-system,sans-serif">ŷ</text>
+
+        <!-- summary -->
+        <rect x="600" y="50" width="150" height="150" rx="8" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+        <text x="675" y="70" text-anchor="middle" font-size="11" font-weight="600" fill="#412402" font-family="-apple-system,sans-serif">AWQ result</text>
+        <line x1="600" y1="78" x2="750" y2="78" stroke="#EF9F27" stroke-width="0.5" opacity="0.5"/>
+        <text x="618" y="96" font-size="11" fill="#633806" font-family="-apple-system,sans-serif">Format: INT4</text>
+        <text x="618" y="113" font-size="11" fill="#633806" font-family="-apple-system,sans-serif">Salient ch: ★ ✓</text>
+        <text x="618" y="130" font-size="11" fill="#633806" font-family="-apple-system,sans-serif">Max err: 0.010</text>
+        <text x="618" y="147" font-size="11" fill="#633806" font-family="-apple-system,sans-serif">Avg err: 0.006</text>
+        <text x="618" y="167" font-size="11" fill="#412402" font-family="-apple-system,sans-serif">Output ŷ:</text>
+        <text x="618" y="184" font-size="12" font-weight="600" fill="#412402" font-family="-apple-system,sans-serif">0.808 (was 0.81)</text>
+      </svg>
+    </div>
+    <div class="caption">The amber edge (h₂→ŷ) is the protected salient channel. Its reconstructed weight (0.387) is very close to the original (0.38). <strong>Output: 0.808 vs original 0.810.</strong> All in INT4, with just minutes of calibration time — no Hessian required.</div>
+  </div>
+
+  <div class="step-nav">
+    <button class="btn" id="awq-prev" onclick="aStep(awqCur-1)" disabled>← Prev</button>
+    <span class="step-counter" id="awq-counter">Step 1 of 5</span>
+    <button class="btn primary" id="awq-next" onclick="aStep(awqCur+1)">Next →</button>
+  </div>
+</div>
+
+<script>
+var gptqCur = 0, sqCur = 0, awqCur = 0;
+var gTotal = 5, sTotal = 5, aTotal = 5;
+
+function gStep(n) {
+  if (n < 0 || n >= gTotal) return;
+  document.getElementById('g'+gptqCur).classList.remove('active');
+  document.querySelectorAll('#gptq-tabs .mtab')[gptqCur].classList.remove('active');
+  gptqCur = n;
+  document.getElementById('g'+gptqCur).classList.add('active');
+  document.querySelectorAll('#gptq-tabs .mtab')[gptqCur].classList.add('active');
+  document.getElementById('gptq-prev').disabled = gptqCur === 0;
+  document.getElementById('gptq-next').disabled = gptqCur === gTotal-1;
+  document.getElementById('gptq-next').textContent = gptqCur === gTotal-1 ? 'Done ✓' : 'Next →';
+  document.getElementById('gptq-counter').textContent = 'Step '+(gptqCur+1)+' of '+gTotal;
+}
+
+function sStep(n) {
+  if (n < 0 || n >= sTotal) return;
+  document.getElementById('s'+sqCur).classList.remove('active');
+  document.querySelectorAll('#sq-card .mtab')[sqCur].classList.remove('active');
+  sqCur = n;
+  document.getElementById('s'+sqCur).classList.add('active');
+  document.querySelectorAll('#sq-card .mtab')[sqCur].classList.add('active');
+  document.getElementById('sq-prev').disabled = sqCur === 0;
+  document.getElementById('sq-next').disabled = sqCur === sTotal-1;
+  document.getElementById('sq-next').textContent = sqCur === sTotal-1 ? 'Done ✓' : 'Next →';
+  document.getElementById('sq-counter').textContent = 'Step '+(sqCur+1)+' of '+sTotal;
+}
+
+function aStep(n) {
+  if (n < 0 || n >= aTotal) return;
+  document.getElementById('a'+awqCur).classList.remove('active');
+  document.querySelectorAll('#awq-card .mtab')[awqCur].classList.remove('active');
+  awqCur = n;
+  document.getElementById('a'+awqCur).classList.add('active');
+  document.querySelectorAll('#awq-card .mtab')[awqCur].classList.add('active');
+  document.getElementById('awq-prev').disabled = awqCur === 0;
+  document.getElementById('awq-next').disabled = awqCur === aTotal-1;
+  document.getElementById('awq-next').textContent = awqCur === aTotal-1 ? 'Done ✓' : 'Next →';
+  document.getElementById('awq-counter').textContent = 'Step '+(awqCur+1)+' of '+aTotal;
+}
+</script>
+</body>
+</html>

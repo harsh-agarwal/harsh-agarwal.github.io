@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Quantization Methods: GPTQ, SmoothQuant & AWQ</title>
+<style>
+  :root {
+    --purple:    #7F77DD;
+    --purple-lt: #EEEDFE;
+    --purple-dk: #3C3489;
+    --teal:      #1D9E75;
+    --teal-lt:   #E1F5EE;
+    --teal-dk:   #085041;
+    --coral:     #D85A30;
+    --coral-lt:  #FAECE7;
+    --coral-dk:  #4A1B0C;
+    --amber:     #EF9F27;
+    --amber-lt:  #FAEEDA;
+    --amber-dk:  #412402;
+    --red:       #E24B4A;
+    --red-lt:    #FCEBEB;
+    --red-dk:    #501313;
+    --blue:      #378ADD;
+    --blue-lt:   #E6F1FB;
+    --blue-dk:   #042C53;
+    --gray:      #888780;
+    --gray-lt:   #F1EFE8;
+    --gray-dk:   #2C2C2A;
+    --text:      #1a1a18;
+    --text-2:    #5F5E5A;
+    --text-3:    #888780;
+    --bg:        #ffffff;
+    --bg-2:      #F7F6F2;
+    --border:    rgba(0,0,0,0.1);
+    --border-2:  rgba(0,0,0,0.18);
+    --radius:    10px;
+    --sans:      -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: #f0efe9;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px 48px;
+  }
+  .card {
+    background: var(--bg);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 780px;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  .hdr {
+    padding: 20px 28px 0;
+  }
+  .hdr-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .hdr-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .hdr-sub   { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .step-count { font-size: 12px; color: var(--text-3); }
+
+  /* ── Pills nav ── */
+  .pills {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pill {
+    font-size: 12px; padding: 5px 13px;
+    border-radius: 20px;
+    border: 1px solid var(--border-2);
+    color: var(--text-3);
+    cursor: pointer;
+    background: transparent;
+    transition: all .15s;
+    font-family: var(--sans);
+  }
+  .pill:hover { background: var(--bg-2); color: var(--text); }
+  .pill.active { background: var(--text); color: #fff; border-color: var(--text); }
+
+  /* ── Slide body ── */
+  .slides { padding: 24px 28px; }
+  .slide  { display: none; }
+  .slide.active { display: block; }
+
+  .slide-label {
+    font-size: 11px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-3);
+    margin-bottom: 6px;
+  }
+  .slide-title {
+    font-size: 20px; font-weight: 600; color: var(--text);
+    margin-bottom: 4px; line-height: 1.3;
+  }
+  .slide-intro {
+    font-size: 13px; color: var(--text-2); line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 12px 20px;
+    margin-bottom: 16px;
+    font-size: 12px; color: var(--text-2);
+  }
+  .leg { display: flex; align-items: center; gap: 6px; }
+  .leg-dot {
+    width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+  }
+
+  /* ── SVG wrapper ── */
+  .viz { width: 100%; margin-bottom: 20px; }
+  .viz svg { width: 100%; height: auto; display: block; }
+
+  /* ── Caption ── */
+  .caption {
+    font-size: 13px; line-height: 1.65; color: var(--text-2);
+    padding: 14px 18px;
+    border-left: 3px solid var(--border-2);
+    border-radius: 0 8px 8px 0;
+    background: var(--bg-2);
+    margin-bottom: 14px;
+  }
+  .caption strong { color: var(--text); font-weight: 600; }
+
+  /* ── Insight box ── */
+  .insight {
+    font-size: 13px; line-height: 1.65; color: var(--text-2);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+  .insight b { color: var(--text); font-weight: 600; }
+
+  /* ── Bottom nav ── */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .nav-btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    padding: 8px 20px; border-radius: 8px;
+    border: 1px solid var(--border-2);
+    background: transparent; color: var(--text);
+    cursor: pointer; transition: background .15s;
+  }
+  .nav-btn:hover { background: var(--bg-2); }
+  .nav-btn:disabled { opacity: .3; cursor: default; }
+  .nav-btn.primary {
+    background: var(--text); color: #fff; border-color: var(--text);
+  }
+  .nav-btn.primary:hover { opacity: .88; }
+  .progress-dots { display: flex; gap: 6px; }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border-2); transition: background .2s;
+    cursor: pointer;
+  }
+  .dot.active { background: var(--text); }
+
+  /* ── Summary grid ── */
+  .sum-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .sum-card {
+    border-radius: 10px; border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .sum-head {
+    padding: 10px 14px 9px;
+    font-size: 14px; font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .sum-body { padding: 12px 14px; }
+  .sum-row { margin-bottom: 10px; }
+  .sum-row:last-child { margin-bottom: 0; }
+  .sum-lbl { font-size: 11px; color: var(--text-3); margin-bottom: 3px; }
+  .sum-val { font-size: 13px; color: var(--text); line-height: 1.4; }
+  .badge {
+    display: inline-block; font-size: 11px; padding: 2px 9px;
+    border-radius: 20px; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-top">
+      <div>
+        <div class="hdr-title">How modern quantization actually works</div>
+        <div class="hdr-sub">A classroom walkthrough on a 2-layer network</div>
+      </div>
+      <div class="step-count" id="step-count">1 / 6</div>
+    </div>
+    <div class="pills" id="pills">
+      <button class="pill active" onclick="goTo(0)">Baseline</button>
+      <button class="pill" onclick="goTo(1)">The problem</button>
+      <button class="pill" onclick="goTo(2)">GPTQ</button>
+      <button class="pill" onclick="goTo(3)">SmoothQuant</button>
+      <button class="pill" onclick="goTo(4)">AWQ</button>
+      <button class="pill" onclick="goTo(5)">Summary</button>
+    </div>
+  </div>
+
+  <!-- Slides -->
+  <div class="slides">
+
+    <!-- ═══ SLIDE 0: Baseline ═══ -->
+    <div class="slide active" id="s0">
+      <div class="slide-label">Setup</div>
+      <div class="slide-title">Our toy model — fp32 baseline</div>
+      <div class="slide-intro">A 2-input, 2-hidden, 1-output binary classifier. Every edge is a learned weight stored as a 32-bit float. These are the numbers we want to compress to INT4.</div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#7F77DD"></div>Input layer</div>
+        <div class="leg"><div class="leg-dot" style="background:#1D9E75"></div>Hidden layer</div>
+        <div class="leg"><div class="leg-dot" style="background:#D85A30"></div>Output layer</div>
+        <div class="leg"><div class="leg-dot" style="background:#aaa"></div>Edge weight (fp32)</div>
+      </div>
+      <div class="viz">
+        <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="a0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 2L8 5L2 8" fill="none" stroke="#aaa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- edges input→hidden -->
+          <line x1="148" y1="105" x2="302" y2="105" stroke="#ccc" stroke-width="2" marker-end="url(#a0)"/>
+          <line x1="148" y1="105" x2="302" y2="205" stroke="#ccc" stroke-width="2" marker-end="url(#a0)"/>
+          <line x1="148" y1="205" x2="302" y2="105" stroke="#ccc" stroke-width="2" marker-end="url(#a0)"/>
+          <line x1="148" y1="205" x2="302" y2="205" stroke="#ccc" stroke-width="2" marker-end="url(#a0)"/>
+
+          <!-- weight labels on edges -->
+          <rect x="192" y="88" width="38" height="18" rx="4" fill="white" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="211" y="101" text-anchor="middle" font-size="11" fill="#5F5E5A">0.43</text>
+
+          <rect x="192" y="148" width="38" height="18" rx="4" fill="white" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="211" y="161" text-anchor="middle" font-size="11" fill="#5F5E5A">0.07</text>
+
+          <rect x="192" y="174" width="38" height="18" rx="4" fill="white" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="211" y="187" text-anchor="middle" font-size="11" fill="#5F5E5A">0.91</text>
+
+          <rect x="192" y="215" width="38" height="18" rx="4" fill="white" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="211" y="228" text-anchor="middle" font-size="11" fill="#5F5E5A">0.02</text>
+
+          <!-- edges hidden→output -->
+          <line x1="368" y1="105" x2="532" y2="155" stroke="#ccc" stroke-width="2" marker-end="url(#a0)"/>
+          <line x1="368" y1="205" x2="532" y2="155" stroke="#ccc" stroke-width="2" marker-end="url(#a0)"/>
+
+          <rect x="418" y="114" width="38" height="18" rx="4" fill="white" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="437" y="127" text-anchor="middle" font-size="11" fill="#5F5E5A">0.65</text>
+
+          <rect x="418" y="173" width="38" height="18" rx="4" fill="white" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="437" y="186" text-anchor="middle" font-size="11" fill="#5F5E5A">0.38</text>
+
+          <!-- Input nodes -->
+          <circle cx="110" cy="105" r="34" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+          <text x="110" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="#3C3489">x₁</text>
+          <text x="110" y="117" text-anchor="middle" font-size="12" fill="#534AB7">1.20</text>
+
+          <circle cx="110" cy="205" r="34" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+          <text x="110" y="200" text-anchor="middle" font-size="13" font-weight="600" fill="#3C3489">x₂</text>
+          <text x="110" y="217" text-anchor="middle" font-size="12" fill="#534AB7">0.80</text>
+
+          <!-- Hidden nodes -->
+          <circle cx="335" cy="105" r="34" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+          <text x="335" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="#085041">h₁</text>
+          <text x="335" y="117" text-anchor="middle" font-size="12" fill="#0F6E56">0.56</text>
+
+          <circle cx="335" cy="205" r="34" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+          <text x="335" y="200" text-anchor="middle" font-size="13" font-weight="600" fill="#085041">h₂</text>
+          <text x="335" y="217" text-anchor="middle" font-size="12" fill="#0F6E56">0.74</text>
+
+          <!-- Output node -->
+          <circle cx="568" cy="155" r="34" fill="#FAECE7" stroke="#D85A30" stroke-width="1.5"/>
+          <text x="568" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="#4A1B0C">ŷ</text>
+          <text x="568" y="167" text-anchor="middle" font-size="12" fill="#993C1D">0.81</text>
+
+          <!-- Layer labels -->
+          <text x="110" y="270" text-anchor="middle" font-size="12" fill="#888780">Input</text>
+          <text x="335" y="270" text-anchor="middle" font-size="12" fill="#888780">Hidden</text>
+          <text x="568" y="270" text-anchor="middle" font-size="12" fill="#888780">Output</text>
+
+          <!-- fp32 badge -->
+          <rect x="270" y="16" width="180" height="24" rx="6" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1"/>
+          <text x="360" y="32" text-anchor="middle" font-size="11" font-weight="600" fill="#085041">All weights in fp32 — baseline</text>
+        </svg>
+      </div>
+      <div class="caption">Six weights in total: four from input→hidden (0.43, 0.07, 0.91, 0.02) and two from hidden→output (0.65, 0.38). In fp32, each weight uses 4 bytes. <strong>Goal: compress each to 4 bits (INT4) — 8× smaller — without destroying the model's predictions.</strong></div>
+    </div>
+
+    <!-- ═══ SLIDE 1: The Problem ═══ -->
+    <div class="slide" id="s1">
+      <div class="slide-label">The core challenge</div>
+      <div class="slide-title">One outlier ruins the whole scale</div>
+      <div class="slide-intro">INT4 gives you exactly 16 integer buckets. The scale is set by the full weight range. One large outlier forces a scale so coarse that all normal weights collapse into the same bucket.</div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#E24B4A"></div>Outlier weight</div>
+        <div class="leg"><div class="leg-dot" style="background:#1D9E75"></div>Normal weights (clustered)</div>
+        <div class="leg"><div class="leg-dot" style="background:#FAECE7; border:1px solid #D85A30"></div>INT4 buckets</div>
+      </div>
+      <div class="viz">
+        <svg viewBox="0 0 720 310" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 2L8 5L2 8" fill="none" stroke="#aaa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- Number line -->
+          <line x1="40" y1="120" x2="680" y2="120" stroke="#ccc" stroke-width="1.5" marker-end="url(#a1)"/>
+
+          <!-- 16 INT4 buckets, each ~40px wide -->
+          <!-- They span the full 0..47 range because of the outlier -->
+          <text x="40" y="100" font-size="11" fill="#888780" font-weight="500">INT4 buckets (16 total, naive):</text>
+          <!-- Render 15 normal buckets + 1 highlighted outlier bucket -->
+          <rect x="40"  y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="79"  y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="118" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="157" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="196" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="235" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="274" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="313" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="352" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="391" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="430" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="469" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="508" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="547" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <rect x="586" y="128" width="38" height="18" rx="2" fill="#FAECE7" stroke="#D85A30" stroke-width="0.8" opacity="0.7"/>
+          <!-- Last bucket — outlier lands here -->
+          <rect x="625" y="123" width="40" height="28" rx="3" fill="#F5C4B3" stroke="#D85A30" stroke-width="2"/>
+
+          <!-- All normal weights (0.02–0.91) land in bucket 0 -->
+          <circle cx="48" cy="120" r="5" fill="#1D9E75"/>
+          <circle cx="56" cy="120" r="5" fill="#1D9E75"/>
+          <circle cx="64" cy="120" r="5" fill="#1D9E75"/>
+          <circle cx="72" cy="120" r="5" fill="#1D9E75"/>
+          <circle cx="59" cy="107" r="3.5" fill="#1D9E75" opacity="0.5"/>
+
+          <text x="59" y="88" text-anchor="middle" font-size="11" fill="#0F6E56" font-weight="500">5 weights</text>
+          <text x="59" y="100" text-anchor="middle" font-size="11" fill="#0F6E56">all in bucket 0!</text>
+          <line x1="59" y1="102" x2="59" y2="115" stroke="#1D9E75" stroke-width="0.8" stroke-dasharray="3 2"/>
+
+          <!-- Outlier -->
+          <circle cx="645" cy="120" r="8" fill="#E24B4A"/>
+          <text x="645" y="106" text-anchor="middle" font-size="12" font-weight="600" fill="#A32D2D">47.3</text>
+          <text x="645" y="95" text-anchor="middle" font-size="11" fill="#A32D2D">← outlier!</text>
+
+          <!-- Scale labels -->
+          <text x="40"  y="162" font-size="11" fill="#888780">0.0</text>
+          <text x="615" y="162" font-size="11" fill="#888780">47.3</text>
+          <text x="340" y="162" text-anchor="middle" font-size="11" fill="#888780">~23.6</text>
+
+          <!-- Wasted space bracket -->
+          <line x1="79" y1="180" x2="620" y2="180" stroke="#E24B4A" stroke-width="1" stroke-dasharray="5 3"/>
+          <line x1="79" y1="175" x2="79" y2="185" stroke="#E24B4A" stroke-width="1"/>
+          <line x1="620" y1="175" x2="620" y2="185" stroke="#E24B4A" stroke-width="1"/>
+          <text x="349" y="197" text-anchor="middle" font-size="12" fill="#A32D2D" font-weight="500">15 buckets wasted on empty space</text>
+
+          <!-- Math box -->
+          <rect x="40" y="215" width="640" height="72" rx="8" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="60" y="238" font-size="12" font-weight="600" fill="#1a1a18">Naive INT4 scale:</text>
+          <text x="60" y="258" font-size="13" fill="#5F5E5A">s = (max − min) / (2⁴ − 1)  =  (47.3 − 0.0) / 15  =  3.15 per bucket</text>
+          <text x="60" y="278" font-size="12" fill="#D85A30">Normal weights span 0.02 → 0.91 = 0.89 total range. At scale 3.15, they all round to bucket 0.</text>
+        </svg>
+      </div>
+      <div class="caption">This is the enemy. Not just theoretical — transformer residual streams regularly contain activation values 100× larger than the typical magnitude. <strong>The three methods on the next slides each solve this differently.</strong></div>
+    </div>
+
+    <!-- ═══ SLIDE 2: GPTQ ═══ -->
+    <div class="slide" id="s2">
+      <div class="slide-label">Method 1</div>
+      <div class="slide-title">GPTQ — quantize by importance, compensate errors</div>
+      <div class="slide-intro">GPTQ runs a calibration set through the model to compute the Hessian diagonal — a measure of how sensitive the loss is to each weight. High-sensitivity weights get quantized carefully; their rounding error is pushed to neighbors.</div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#534AB7"></div>High Hessian (very important)</div>
+        <div class="leg"><div class="leg-dot" style="background:#AFA9EC"></div>Medium importance</div>
+        <div class="leg"><div class="leg-dot" style="background:#ccc"></div>Low importance</div>
+        <div class="leg"><div class="leg-dot" style="background:#E24B4A"></div>Error propagation</div>
+      </div>
+      <div class="viz">
+        <svg viewBox="0 0 720 350" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="a2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M2 2L8 5L2 8" fill="none" stroke="#E24B4A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- Column headers -->
+          <text x="112" y="38" text-anchor="middle" font-size="11" fill="#888780">Weight</text>
+          <text x="240" y="38" text-anchor="middle" font-size="11" fill="#888780">Value (fp32)</text>
+          <text x="390" y="38" text-anchor="middle" font-size="11" fill="#534AB7" font-weight="600">Hessian diag H</text>
+          <text x="590" y="38" text-anchor="middle" font-size="11" fill="#888780">What GPTQ does</text>
+
+          <!-- Row divider -->
+          <line x1="30" y1="48" x2="690" y2="48" stroke="#e0e0d8" stroke-width="0.8"/>
+
+          <!-- ROW 1: w11 — HIGH importance -->
+          <rect x="30"  y="56" width="164" height="52" rx="7" fill="#EEEDFE" stroke="#7F77DD" stroke-width="1.5"/>
+          <text x="112" y="78" text-anchor="middle" font-size="14" font-weight="600" fill="#3C3489">w₁₁ = 0.43</text>
+          <text x="112" y="97" text-anchor="middle" font-size="11" fill="#534AB7">input→hidden edge</text>
+
+          <rect x="204" y="60" width="80" height="44" rx="7" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="0.8"/>
+          <text x="244" y="87" text-anchor="middle" font-size="15" fill="#1a1a18">0.43</text>
+
+          <rect x="310" y="56" width="148" height="52" rx="7" fill="#EEEDFE" stroke="#534AB7" stroke-width="2"/>
+          <text x="384" y="78" text-anchor="middle" font-size="15" font-weight="600" fill="#3C3489">H = 8.4</text>
+          <text x="384" y="97" text-anchor="middle" font-size="12" fill="#534AB7">Very sensitive ↑↑</text>
+
+          <rect x="474" y="60" width="220" height="44" rx="7" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+          <text x="584" y="79" text-anchor="middle" font-size="12" fill="#085041">① Quantize first.</text>
+          <text x="584" y="95" text-anchor="middle" font-size="11" fill="#0F6E56">High sensitivity → careful bucketing</text>
+
+          <!-- ROW 2: w12 — MEDIUM importance -->
+          <rect x="30"  y="122" width="164" height="52" rx="7" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="1.2"/>
+          <text x="112" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#534AB7">w₁₂ = 0.91</text>
+          <text x="112" y="163" text-anchor="middle" font-size="11" fill="#7F77DD">input→hidden edge</text>
+
+          <rect x="204" y="126" width="80" height="44" rx="7" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="0.8"/>
+          <text x="244" y="153" text-anchor="middle" font-size="15" fill="#1a1a18">0.91</text>
+
+          <rect x="310" y="122" width="148" height="52" rx="7" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="1.2"/>
+          <text x="384" y="144" text-anchor="middle" font-size="15" font-weight="600" fill="#534AB7">H = 3.1</text>
+          <text x="384" y="163" text-anchor="middle" font-size="12" fill="#7F77DD">Medium sensitivity</text>
+
+          <rect x="474" y="126" width="220" height="44" rx="7" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+          <text x="584" y="145" text-anchor="middle" font-size="12" fill="#085041">② Quantize second.</text>
+          <text x="584" y="161" text-anchor="middle" font-size="11" fill="#0F6E56">Absorbs error from w₁₁ rounding</text>
+
+          <!-- ROW 3: w21 — LOW importance -->
+          <rect x="30"  y="188" width="164" height="52" rx="7" fill="#F7F6F2" stroke="#ccc" stroke-width="1"/>
+          <text x="112" y="210" text-anchor="middle" font-size="14" font-weight="600" fill="#5F5E5A">w₂₁ = 0.07</text>
+          <text x="112" y="229" text-anchor="middle" font-size="11" fill="#888780">input→hidden edge</text>
+
+          <rect x="204" y="192" width="80" height="44" rx="7" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="0.8"/>
+          <text x="244" y="219" text-anchor="middle" font-size="15" fill="#888780">0.07</text>
+
+          <rect x="310" y="188" width="148" height="52" rx="7" fill="#F7F6F2" stroke="#ccc" stroke-width="1"/>
+          <text x="384" y="210" text-anchor="middle" font-size="15" font-weight="600" fill="#888780">H = 0.3</text>
+          <text x="384" y="229" text-anchor="middle" font-size="12" fill="#888780">Low sensitivity ↓↓</text>
+
+          <rect x="474" y="192" width="220" height="44" rx="7" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="0.8"/>
+          <text x="584" y="211" text-anchor="middle" font-size="12" fill="#888780">③ Quantize last.</text>
+          <text x="584" y="227" text-anchor="middle" font-size="11" fill="#888780">Low impact — coarse rounding ok</text>
+
+          <!-- Error propagation arrow between row 1→2 -->
+          <path d="M 198 148 Q 185 165 198 178" fill="none" stroke="#E24B4A" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#a2r)"/>
+          <text x="128" y="165" text-anchor="middle" font-size="11" fill="#A32D2D">error</text>
+          <text x="128" y="178" text-anchor="middle" font-size="11" fill="#A32D2D">flows ↓</text>
+
+          <!-- Key insight box -->
+          <rect x="30" y="262" width="660" height="70" rx="8" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="360" y="284" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a18">Key insight: Hessian diagonal = ∂²Loss / ∂w²</text>
+          <text x="360" y="302" text-anchor="middle" font-size="12" fill="#5F5E5A">Large H means the loss surface curves steeply near this weight — small perturbations matter a lot.</text>
+          <text x="360" y="320" text-anchor="middle" font-size="12" fill="#5F5E5A">After quantizing w₁₁, the rounding error δ is compensated in w₁₂ so the layer output stays accurate.</text>
+        </svg>
+      </div>
+      <div class="caption"><strong>GPTQ</strong> treats quantization as an optimization problem over the full weight matrix. It uses the Hessian to find the order that minimizes total output error, compensating downstream weights for the rounding error introduced at each step.</div>
+      <div class="insight"><b>Limitation:</b> Computing the Hessian needs a calibration dataset and takes hours for large models. GPTQ is weight-only — activations still run at fp16. Excellent quality at INT3/INT4 but expensive to run.</div>
+    </div>
+
+    <!-- ═══ SLIDE 3: SmoothQuant ═══ -->
+    <div class="slide" id="s3">
+      <div class="slide-label">Method 2</div>
+      <div class="slide-title">SmoothQuant — migrate the difficulty</div>
+      <div class="slide-intro">The problem with quantizing activations: they vary per input, so you can't measure their range ahead of time. SmoothQuant's insight: mathematically move the outlier "difficulty" from activations into weights — which are static and can be pre-calibrated.</div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#D85A30"></div>Activation outlier</div>
+        <div class="leg"><div class="leg-dot" style="background:#378ADD"></div>Smooth factor s = √outlier</div>
+        <div class="leg"><div class="leg-dot" style="background:#1D9E75"></div>After smoothing — safe to quantize</div>
+      </div>
+      <div class="viz">
+        <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 2L8 5L2 8" fill="none" stroke="#378ADD" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- BEFORE panel -->
+          <rect x="30" y="30" width="270" height="180" rx="10" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="165" y="54" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a18">Before smoothing</text>
+          <line x1="30" y1="62" x2="300" y2="62" stroke="#e0e0d8" stroke-width="0.8"/>
+
+          <text x="105" y="86" text-anchor="middle" font-size="11" fill="#888780">Activation x</text>
+          <text x="225" y="86" text-anchor="middle" font-size="11" fill="#888780">Weight W</text>
+
+          <!-- Activation values -->
+          <rect x="55" y="94" width="100" height="30" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+          <text x="105" y="114" text-anchor="middle" font-size="13" fill="#085041">1.20</text>
+
+          <rect x="55" y="130" width="100" height="30" rx="5" fill="#FAECE7" stroke="#D85A30" stroke-width="2"/>
+          <text x="105" y="150" text-anchor="middle" font-size="13" font-weight="700" fill="#993C1D">48.2 ⚠</text>
+
+          <rect x="55" y="166" width="100" height="30" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+          <text x="105" y="186" text-anchor="middle" font-size="13" fill="#085041">0.80</text>
+
+          <!-- Weight values (before) -->
+          <rect x="175" y="94" width="100" height="30" rx="5" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.8"/>
+          <text x="225" y="114" text-anchor="middle" font-size="13" fill="#534AB7">0.43</text>
+
+          <rect x="175" y="130" width="100" height="30" rx="5" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.8"/>
+          <text x="225" y="150" text-anchor="middle" font-size="13" fill="#534AB7">0.65</text>
+
+          <rect x="175" y="166" width="100" height="30" rx="5" fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.8"/>
+          <text x="225" y="186" text-anchor="middle" font-size="13" fill="#534AB7">0.38</text>
+
+          <text x="165" y="215" text-anchor="middle" font-size="11" fill="#A32D2D">scale = 48.2/15 ≈ 3.21  ← bad</text>
+
+          <!-- Transform box -->
+          <rect x="320" y="95" width="90" height="90" rx="8" fill="#E6F1FB" stroke="#378ADD" stroke-width="1"/>
+          <text x="365" y="120" text-anchor="middle" font-size="11" font-weight="600" fill="#0C447C">x̂ = x / s</text>
+          <text x="365" y="138" text-anchor="middle" font-size="11" fill="#185FA5">Ŵ = W × s</text>
+          <text x="365" y="158" text-anchor="middle" font-size="12" font-weight="600" fill="#042C53">s = √48.2</text>
+          <text x="365" y="174" text-anchor="middle" font-size="11" fill="#185FA5">≈ 6.94</text>
+          <line x1="300" y1="140" x2="318" y2="140" stroke="#378ADD" stroke-width="1.5" marker-end="url(#a3)"/>
+          <line x1="410" y1="140" x2="428" y2="140" stroke="#378ADD" stroke-width="1.5" marker-end="url(#a3)"/>
+
+          <!-- AFTER panel -->
+          <rect x="430" y="30" width="270" height="180" rx="10" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="565" y="54" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a18">After smoothing</text>
+          <line x1="430" y1="62" x2="700" y2="62" stroke="#e0e0d8" stroke-width="0.8"/>
+
+          <text x="505" y="86" text-anchor="middle" font-size="11" fill="#888780">Activation x̂</text>
+          <text x="625" y="86" text-anchor="middle" font-size="11" fill="#888780">Weight Ŵ</text>
+
+          <!-- Smoothed activations -->
+          <rect x="455" y="94" width="100" height="30" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+          <text x="505" y="114" text-anchor="middle" font-size="13" fill="#085041">0.17</text>
+
+          <rect x="455" y="130" width="100" height="30" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+          <text x="505" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="#085041">6.94</text>
+
+          <rect x="455" y="166" width="100" height="30" rx="5" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.8"/>
+          <text x="505" y="186" text-anchor="middle" font-size="13" fill="#085041">0.12</text>
+
+          <!-- Scaled weights -->
+          <rect x="575" y="94" width="100" height="30" rx="5" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.8"/>
+          <text x="625" y="114" text-anchor="middle" font-size="13" fill="#534AB7">2.98</text>
+
+          <rect x="575" y="130" width="100" height="30" rx="5" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+          <text x="625" y="150" text-anchor="middle" font-size="13" font-weight="600" fill="#534AB7">4.51</text>
+
+          <rect x="575" y="166" width="100" height="30" rx="5" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.8"/>
+          <text x="625" y="186" text-anchor="middle" font-size="13" fill="#534AB7">2.64</text>
+
+          <text x="565" y="215" text-anchor="middle" font-size="11" fill="#0F6E56">scale = 6.94/15 ≈ 0.46  ← 7× better!</text>
+
+          <!-- Math identity -->
+          <rect x="30" y="240" width="660" height="70" rx="8" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="360" y="262" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a18">The magic: output is mathematically identical</text>
+          <text x="360" y="282" text-anchor="middle" font-size="13" fill="#5F5E5A">y = X · W  =  (X · diag(s)⁻¹) · (diag(s) · W)  =  X̂ · Ŵ</text>
+          <text x="360" y="302" text-anchor="middle" font-size="12" fill="#0F6E56">Insert s then s⁻¹ — cancel out, output unchanged. But now both X̂ and Ŵ are quantization-friendly.</text>
+        </svg>
+      </div>
+      <div class="caption"><strong>SmoothQuant</strong> is the key to quantizing activations, not just weights. By migrating the outlier scale from X into W, both tensors become well-behaved — and you can quantize them both to INT8 using standard methods.</div>
+      <div class="insight"><b>What this enables:</b> W8A8 inference — weight 8-bit, activation 8-bit. NVIDIA's INT8 tensor cores run integer matrix multiplications natively, giving up to 4× throughput vs fp16. SmoothQuant is used in TensorRT-LLM and vLLM for high-throughput serving.</div>
+    </div>
+
+    <!-- ═══ SLIDE 4: AWQ ═══ -->
+    <div class="slide" id="s4">
+      <div class="slide-label">Method 3</div>
+      <div class="slide-title">AWQ — protect the salient 1%</div>
+      <div class="slide-intro">AWQ asks a simpler question than GPTQ: which weight channels matter most? Its answer: the ones with consistently large activations. Scale those channels up before quantization so they use more of the INT4 range.</div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#D85A30"></div>Salient channel (large avg |x|)</div>
+        <div class="leg"><div class="leg-dot" style="background:#EF9F27"></div>Medium activation</div>
+        <div class="leg"><div class="leg-dot" style="background:#ccc"></div>Inactive channel</div>
+      </div>
+      <div class="viz">
+        <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M2 2L8 5L2 8" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </marker>
+          </defs>
+
+          <!-- Step 1 label -->
+          <text x="30" y="30" font-size="12" font-weight="600" fill="#1a1a18">Step 1 — score each weight channel by average activation magnitude</text>
+
+          <!-- Column headers -->
+          <text x="110" y="54" text-anchor="middle" font-size="11" fill="#888780">Channel 1</text>
+          <text x="245" y="54" text-anchor="middle" font-size="11" fill="#888780">Channel 2</text>
+          <text x="380" y="54" text-anchor="middle" font-size="11" fill="#D85A30" font-weight="600">Channel 3  ← salient</text>
+
+          <!-- Weight cells row 1 -->
+          <rect x="55"  y="62" width="110" height="38" rx="6" fill="#F7F6F2" stroke="#ccc" stroke-width="1"/>
+          <text x="110" y="86" text-anchor="middle" font-size="14" fill="#888780">0.43</text>
+
+          <rect x="190" y="62" width="110" height="38" rx="6" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+          <text x="245" y="86" text-anchor="middle" font-size="14" fill="#633806">0.65</text>
+
+          <rect x="325" y="62" width="110" height="38" rx="6" fill="#FAECE7" stroke="#D85A30" stroke-width="2"/>
+          <text x="380" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="#4A1B0C">0.91</text>
+
+          <!-- Weight cells row 2 -->
+          <rect x="55"  y="106" width="110" height="38" rx="6" fill="#F7F6F2" stroke="#ccc" stroke-width="1"/>
+          <text x="110" y="130" text-anchor="middle" font-size="14" fill="#888780">0.07</text>
+
+          <rect x="190" y="106" width="110" height="38" rx="6" fill="#FAEEDA" stroke="#EF9F27" stroke-width="1"/>
+          <text x="245" y="130" text-anchor="middle" font-size="14" fill="#633806">0.38</text>
+
+          <rect x="325" y="106" width="110" height="38" rx="6" fill="#FAECE7" stroke="#D85A30" stroke-width="2"/>
+          <text x="380" y="130" text-anchor="middle" font-size="14" font-weight="700" fill="#4A1B0C">0.02</text>
+
+          <!-- Activation magnitude bars -->
+          <text x="30" y="166" font-size="11" fill="#888780">avg |activation|:</text>
+
+          <!-- Ch1 bar -->
+          <rect x="55"  y="172" width="110" height="16" rx="3" fill="#e0e0d8"/>
+          <rect x="55"  y="172" width="25"  height="16" rx="3" fill="#888780"/>
+          <text x="110" y="184" text-anchor="middle" font-size="10" fill="white">0.2</text>
+
+          <!-- Ch2 bar -->
+          <rect x="190" y="172" width="110" height="16" rx="3" fill="#e0e0d8"/>
+          <rect x="190" y="172" width="65"  height="16" rx="3" fill="#EF9F27"/>
+          <text x="245" y="184" text-anchor="middle" font-size="10" fill="white">0.6</text>
+
+          <!-- Ch3 bar (full — salient) -->
+          <rect x="325" y="172" width="110" height="16" rx="3" fill="#e0e0d8"/>
+          <rect x="325" y="172" width="108" height="16" rx="3" fill="#D85A30"/>
+          <text x="380" y="184" text-anchor="middle" font-size="10" fill="white">1.0 ★</text>
+
+          <!-- Arrow to step 2 -->
+          <line x1="480" y1="105" x2="520" y2="105" stroke="#888" stroke-width="1.5" marker-end="url(#a4)"/>
+          <text x="500" y="97" text-anchor="middle" font-size="11" fill="#888780">scale up</text>
+          <text x="500" y="120" text-anchor="middle" font-size="11" fill="#D85A30">ch3 × s</text>
+
+          <!-- Step 2 label -->
+          <text x="540" y="30" font-size="12" font-weight="600" fill="#1a1a18">After: ch3 expanded</text>
+
+          <!-- Ch1+2 unchanged -->
+          <rect x="540" y="62" width="80" height="38" rx="6" fill="#F7F6F2" stroke="#ccc" stroke-width="0.8"/>
+          <text x="580" y="86" text-anchor="middle" font-size="13" fill="#888780">0.43</text>
+
+          <rect x="540" y="106" width="80" height="38" rx="6" fill="#F7F6F2" stroke="#ccc" stroke-width="0.8"/>
+          <text x="580" y="130" text-anchor="middle" font-size="13" fill="#888780">0.07</text>
+
+          <!-- Ch3 scaled box (taller to show expansion) -->
+          <rect x="632" y="50" width="80" height="106" rx="6" fill="#FAECE7" stroke="#D85A30" stroke-width="2"/>
+          <text x="672" y="82" text-anchor="middle" font-size="11" font-weight="600" fill="#4A1B0C">× 4.5</text>
+          <text x="672" y="104" text-anchor="middle" font-size="18" font-weight="700" fill="#993C1D">4.10</text>
+          <text x="672" y="128" text-anchor="middle" font-size="18" font-weight="700" fill="#993C1D">0.09</text>
+          <text x="672" y="150" text-anchor="middle" font-size="10" fill="#D85A30">more INT4</text>
+          <text x="672" y="163" text-anchor="middle" font-size="10" fill="#D85A30">buckets used ↑</text>
+
+          <!-- Why box -->
+          <rect x="30" y="220" width="660" height="100" rx="8" fill="#F7F6F2" stroke="#e0e0d8" stroke-width="1"/>
+          <text x="360" y="242" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a18">Why activation magnitude identifies salient weights</text>
+          <text x="360" y="264" text-anchor="middle" font-size="12" fill="#5F5E5A">Output contribution of weight w in channel c  ≈  w × activation_c</text>
+          <text x="360" y="284" text-anchor="middle" font-size="12" fill="#5F5E5A">If |activation_c| is always large, a small rounding error δw gets amplified: output error ≈ δw × activation_c</text>
+          <text x="360" y="304" text-anchor="middle" font-size="12" fill="#0F6E56">Scale up ch3 before quantization → finer buckets → smaller δw → smaller amplified error.</text>
+        </svg>
+      </div>
+      <div class="caption"><strong>AWQ</strong> protects the 1% of weight channels that matter most. Finding them takes one forward pass — no Hessian needed. Scale up before quantization, scale outputs back down — the math is exact, the quality gain is large.</div>
+      <div class="insight"><b>Why AWQ won in practice:</b> Nearly as accurate as GPTQ but runs in minutes instead of hours. Most production INT4 checkpoints today (Mistral, Qwen, LLaMA) use AWQ. It's the default in Hugging Face's <code>AutoAWQ</code> library.</div>
+    </div>
+
+    <!-- ═══ SLIDE 5: Summary ═══ -->
+    <div class="slide" id="s5">
+      <div class="slide-label">Summary</div>
+      <div class="slide-title">Three methods, three angles of attack</div>
+      <div class="slide-intro">All three share the same goal — minimize output error under INT4/INT8 quantization — but each attacks the problem differently. In production, they're often combined.</div>
+
+      <div class="sum-grid">
+        <!-- GPTQ -->
+        <div class="sum-card" style="border-color:#AFA9EC">
+          <div class="sum-head" style="background:#EEEDFE; color:#3C3489">GPTQ</div>
+          <div class="sum-body">
+            <div class="sum-row">
+              <div class="sum-lbl">Core idea</div>
+              <div class="sum-val">Hessian-weighted quantization + error compensation</div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Quant target</div>
+              <div class="sum-val"><span class="badge" style="background:#EEEDFE;color:#534AB7">Weights only</span></div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Speed</div>
+              <div class="sum-val" style="color:#A32D2D">Slow — hours</div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Best for</div>
+              <div class="sum-val">Max accuracy at INT3 / INT4</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SmoothQuant -->
+        <div class="sum-card" style="border-color:#F0997B">
+          <div class="sum-head" style="background:#FAECE7; color:#4A1B0C">SmoothQuant</div>
+          <div class="sum-body">
+            <div class="sum-row">
+              <div class="sum-lbl">Core idea</div>
+              <div class="sum-val">Migrate activation outliers into weights via scale factor</div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Quant target</div>
+              <div class="sum-val"><span class="badge" style="background:#FAECE7;color:#993C1D">Weights + activations</span></div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Speed</div>
+              <div class="sum-val" style="color:#0F6E56">Fast — one forward pass</div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Best for</div>
+              <div class="sum-val">W8A8 on INT8 tensor core hardware</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AWQ -->
+        <div class="sum-card" style="border-color:#FAC775">
+          <div class="sum-head" style="background:#FAEEDA; color:#412402">AWQ</div>
+          <div class="sum-body">
+            <div class="sum-row">
+              <div class="sum-lbl">Core idea</div>
+              <div class="sum-val">Scale up salient channels (top 1% by activation)</div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Quant target</div>
+              <div class="sum-val"><span class="badge" style="background:#FAEEDA;color:#633806">Weights only</span></div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Speed</div>
+              <div class="sum-val" style="color:#0F6E56">Very fast — minutes</div>
+            </div>
+            <div class="sum-row">
+              <div class="sum-lbl">Best for</div>
+              <div class="sum-val">Production INT4 — most widely used today</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="caption">The progression tells a story: <strong>GPTQ</strong> proved INT4 was viable for LLMs (2022). <strong>SmoothQuant</strong> extended that to activations, unlocking hardware speedups (2022). <strong>AWQ</strong> simplified the whole thing into something fast enough for everyday use (2023). Each paper fixed a specific failure mode of the previous one.</div>
+      <div class="insight"><b>In practice today:</b> Local inference (llama.cpp) → GGUF Q4_K_M uses AWQ-style channel scaling. Production serving (vLLM) → AWQ INT4 for memory, SmoothQuant W8A8 for throughput. Fine-tuning → QLoRA, which quantizes base model weights with NF4 (a 4-bit float variant), then fine-tunes small adapters in fp16.</div>
+    </div>
+
+  </div><!-- /slides -->
+
+  <!-- Bottom nav -->
+  <div class="nav">
+    <button class="nav-btn" id="prev-btn" onclick="goTo(cur-1)" disabled>← Prev</button>
+    <div class="progress-dots" id="dots"></div>
+    <button class="nav-btn primary" id="next-btn" onclick="goTo(cur+1)">Next →</button>
+  </div>
+
+</div><!-- /card -->
+
+<script>
+  var total = 6;
+  var cur   = 0;
+
+  var dotsEl = document.getElementById('dots');
+  for (var i = 0; i < total; i++) {
+    var d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.setAttribute('data-i', i);
+    (function(idx){ d.onclick = function(){ goTo(idx); }; })(i);
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(n) {
+    if (n < 0 || n >= total) return;
+    document.getElementById('s' + cur).classList.remove('active');
+    document.querySelectorAll('.pill')[cur].classList.remove('active');
+    document.querySelectorAll('.dot')[cur].classList.remove('active');
+    cur = n;
+    document.getElementById('s' + cur).classList.add('active');
+    document.querySelectorAll('.pill')[cur].classList.add('active');
+    document.querySelectorAll('.dot')[cur].classList.add('active');
+    document.getElementById('prev-btn').disabled = cur === 0;
+    document.getElementById('next-btn').disabled = cur === total - 1;
+    document.getElementById('next-btn').textContent = cur === total - 1 ? 'Done ✓' : 'Next →';
+    document.getElementById('step-count').textContent = (cur + 1) + ' / ' + total;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
