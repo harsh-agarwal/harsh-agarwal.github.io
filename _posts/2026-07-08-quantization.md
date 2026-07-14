@@ -42,12 +42,68 @@ This one does it differently. We'll build the intuition from bits up, implement 
   margin: 12px 0 20px;
   border-radius: 0 6px 6px 0;
 }
+.code-block-wrap {
+  position: relative;
+}
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255,255,255,0.12);
+  color: #ccc;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+  line-height: 1.6;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+}
+.copy-btn:hover {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+}
+.copy-btn.copied {
+  color: #7ec882;
+  border-color: rgba(126,200,130,0.4);
+}
 </style>
 
 <script>
 MathJax = { tex: { inlineMath: [['$', '$']] } };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('pre').forEach(function (pre) {
+    var wrap = document.createElement('div');
+    wrap.className = 'code-block-wrap';
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(pre);
+
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    wrap.appendChild(btn);
+
+    btn.addEventListener('click', function () {
+      var code = pre.querySelector('code');
+      var text = code ? code.innerText : pre.innerText;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  });
+});
+</script>
 
 ---
 
