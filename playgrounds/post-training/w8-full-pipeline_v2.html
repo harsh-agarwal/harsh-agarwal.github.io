@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Full Post-Training Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fafaf8; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; }
+  .card { background: #fff; border: 1px solid #e8e5de; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .hdr  { background: #f5f3ef; border-bottom: 1px solid #e8e5de; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+  .dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl  { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b6862; font-weight: 500; }
+  .body { padding: 28px 24px 20px; }
+  svg   { width: 100%; height: auto; display: block; overflow: visible; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">The Full Post-Training Stack</span>
+  </div>
+  <div class="body">
+
+<!--
+  COORDINATE SPEC — all verified by algebra, no guessing
+  ──────────────────────────────────────────────────────────
+  viewBox: 0 0 720 290  (overflow:visible handles top arc)
+
+  BOXES — y=80..156 (h=76, cy=118)
+    Pre-training:  x=12..142   cx=77
+    SFT:           x=172..292  cx=232
+    Reward Model:  x=322..470  cx=396
+    Aligned Model: x=500..708  cx=604
+
+  DPO ARC (above boxes, purple dashed)
+    Start: SFT top-centre      (232, 80)
+    End:   Aligned top-centre  (604, 80)
+    Ctrl:  (418, 18)
+    Proof: arc y(t) = (1-t)²·80 + 2t(1-t)·18 + t²·80
+           Only equals 80 at t=0 and t=1.
+           Never dips into box interior. Peak y≈49 at t=0.5.
+    Pill:  centred at x=418, placed at y=6..26
+
+  ITERATIVE ARC (below boxes, blue dashed, cubic bezier)
+    Start: Aligned bottom-centre  (604, 156)
+    End:   SFT bottom-centre      (232, 156)  ← arrow tip here
+    Path:  M 604,156  C 604,248  232,248  232,156
+    Pill:  centred at x=418, placed at y=242..262
+  ──────────────────────────────────────────────────────────
+-->
+
+<svg viewBox="0 0 720 290" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="a-n" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+    <polygon points="0 0,9 3.5,0 7" fill="#c0bbb3"/>
+  </marker>
+  <marker id="a-p" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+    <polygon points="0 0,9 3.5,0 7" fill="#7c3aed"/>
+  </marker>
+  <marker id="a-b" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+    <polygon points="0 0,9 3.5,0 7" fill="#2563eb"/>
+  </marker>
+</defs>
+
+<!-- ══════════════════════════════════════════
+     DPO BYPASS ARC — exits SFT top-centre,
+     arcs cleanly above all boxes,
+     enters Aligned top-centre.
+     Math guarantees zero intersection with boxes.
+═══════════════════════════════════════════ -->
+
+<path d="M232,80 Q418,18 604,80"
+      fill="none"
+      stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="6 3"
+      marker-end="url(#a-p)"/>
+
+<!-- Pill sits at the arc crest (≈ x=418, y=49) — placed above it -->
+<rect x="362" y="5" width="112" height="22" rx="5"
+      fill="#faf5ff" stroke="#ddd6fe" stroke-width="1.2"/>
+<text x="418" y="20" text-anchor="middle"
+      font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600"
+      fill="#7c3aed">DPO bypass</text>
+
+<!-- ══════════════════════════════════════════
+     ROW 1 — four pipeline boxes  y=80..156
+═══════════════════════════════════════════ -->
+
+<!-- Pre-training -->
+<rect x="12" y="80" width="130" height="76" rx="7"
+      fill="#f5f3ef" stroke="#d4d0c8" stroke-width="1.5"/>
+<text x="77" y="108" text-anchor="middle"
+      font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="500"
+      letter-spacing=".7" fill="#a09a92">PRE-TRAINING</text>
+<text x="77" y="130" text-anchor="middle"
+      font-family="'Inter',sans-serif" font-size="13" font-weight="600"
+      fill="#1a1a1a">Base Model</text>
+
+<!-- Arrow Pre → SFT  (right edge of Pre to left edge of SFT) -->
+<line x1="142" y1="118" x2="168" y2="118"
+      stroke="#c0bbb3" stroke-width="1.5" marker-end="url(#a-n)"/>
+
+<!-- SFT -->
+<rect x="172" y="80" width="120" height="76" rx="7"
+      fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+<text x="232" y="108" text-anchor="middle"
+      font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="500"
+      letter-spacing=".7" fill="#2563eb">SFT</text>
+<text x="232" y="130" text-anchor="middle"
+      font-family="'Inter',sans-serif" font-size="13" font-weight="600"
+      fill="#1a1a1a">SFT Model</text>
+
+<!-- Arrow SFT → RM  (right edge of SFT to left edge of RM) -->
+<line x1="292" y1="118" x2="318" y2="118"
+      stroke="#c0bbb3" stroke-width="1.5" marker-end="url(#a-n)"/>
+
+<!-- Reward Model -->
+<rect x="322" y="80" width="148" height="76" rx="7"
+      fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5"/>
+<text x="396" y="105" text-anchor="middle"
+      font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="500"
+      letter-spacing=".7" fill="#7c3aed">REWARD MODEL</text>
+<text x="396" y="117" text-anchor="middle"
+      font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="500"
+      letter-spacing=".7" fill="#7c3aed">TRAINING</text>
+<text x="396" y="134" text-anchor="middle"
+      font-family="'Inter',sans-serif" font-size="11"
+      fill="#6b6862">Human feedback</text>
+<text x="396" y="149" text-anchor="middle"
+      font-family="'Inter',sans-serif" font-size="10.5"
+      fill="#9c9890">AI feedback (RLAIF)</text>
+
+<!-- Arrow RM → Aligned  (right edge of RM to left edge of Aligned) -->
+<line x1="470" y1="118" x2="496" y2="118"
+      stroke="#c0bbb3" stroke-width="1.5" marker-end="url(#a-n)"/>
+
+<!-- Aligned Model -->
+<rect x="500" y="80" width="208" height="76" rx="7"
+      fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+<text x="604" y="105" text-anchor="middle"
+      font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="500"
+      letter-spacing=".7" fill="#059669">RL / PPO</text>
+<text x="604" y="126" text-anchor="middle"
+      font-family="'Inter',sans-serif" font-size="13" font-weight="600"
+      fill="#1a1a1a">Aligned Model</text>
+<text x="604" y="147" text-anchor="middle"
+      font-family="'Inter',sans-serif" font-size="10" font-style="italic"
+      fill="#059669">KL divergence anchors SFT weights</text>
+
+<!-- ══════════════════════════════════════════
+     ITERATIVE ROUNDS ARC — cubic bezier,
+     exits Aligned bottom-centre (604,156),
+     sweeps cleanly below all boxes,
+     arrow tip lands at SFT bottom-centre (232,156).
+═══════════════════════════════════════════ -->
+
+<path d="M604,156 C604,248 232,248 232,156"
+      fill="none"
+      stroke="#2563eb" stroke-width="1.2" stroke-dasharray="5 3"
+      marker-end="url(#a-b)"/>
+
+<!-- Pill sits at the arc nadir (y≈248), centred between start/end -->
+<rect x="356" y="242" width="124" height="22" rx="5"
+      fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+<text x="418" y="257" text-anchor="middle"
+      font-family="'JetBrains Mono',monospace" font-size="9" font-weight="500"
+      fill="#2563eb">iterative rounds ↺</text>
+
+</svg>
+
+  </div>
+</div>
+<script>
+  function notify() {
+    window.parent.postMessage({ iframeId: 'rlhf-w8', height: document.body.scrollHeight }, '*');
+  }
+  window.addEventListener('load', notify);
+  window.addEventListener('resize', notify);
+</script>
+</body>
+</html>

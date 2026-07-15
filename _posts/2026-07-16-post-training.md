@@ -264,7 +264,7 @@ Putting it all together: pre-training produces a capable but unaligned base mode
 Each stage exists because the stage before it ran into a wall. SFT hit a ceiling on demonstration quality. RLHF pushed past it but needed a reward model. PPO needed a leash. Reward models got gamed, so you added calibration. Human annotation was too slow, so you added AI feedback. The whole stack is a sequence of answers to problems raised by the previous answer. The diagram below shows how the components connect.
 
 <iframe id="rlhf-w8"
-  src="/playgrounds/post-training/w8-full-pipeline.html"
+  src="/playgrounds/post-training/w8-full-pipeline_v2.html"
   class="fig-iframe" scrolling="no">
 </iframe>
 
