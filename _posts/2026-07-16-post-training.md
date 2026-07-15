@@ -52,7 +52,18 @@ This post walks through each stage of the modern post-training stack: Supervised
   color: #7ec882;
   border-color: rgba(126,200,130,0.4);
 }
+.eq-vars {
+  font-size: 14px;
+  line-height: 2;
+  margin: 4px 0 20px 2px;
+  color: #555;
+}
 </style>
+
+<script>
+MathJax = { tex: { inlineMath: [['$', '$']] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -124,17 +135,15 @@ Since humans can't be in the loop for every gradient update (a single training r
 
 The reward model learns from pairwise comparisons. You show it a prompt alongside two responses, and it learns to predict which one a human annotator would prefer. The training objective encodes exactly this:
 
-```
-P(y_w preferred over y_l) = σ( r(x, y_w) − r(x, y_l) )
+$$P(y_w \succ y_l) = \sigma\!\left( r(x,\, y_w) - r(x,\, y_l) \right)$$
 
-Loss = −E[ log σ( r(x, y_w) − r(x, y_l) ) ]
+$$\mathcal{L}_{\text{RM}} = -\,\mathbb{E}\!\left[ \log \sigma\!\left( r(x,\, y_w) - r(x,\, y_l) \right) \right]$$
 
-where:
-  r(x, y) = reward score for response y given prompt x
-  y_w     = preferred (winner) response
-  y_l     = dispreferred (loser) response
-  σ       = sigmoid function
-```
+<div class="eq-vars">
+$r(x, y)$ — reward score for response $y$ given prompt $x$<br>
+$y_w$ — preferred (winner) response; &nbsp; $y_l$ — dispreferred (loser) response<br>
+$\sigma$ — sigmoid function
+</div>
 
 Once trained, the reward model is a standalone function you can query cheaply at inference time. Give it any (prompt, response) pair and it returns a scalar score. You've distilled human preference into something differentiable, and that's what makes optimization against it possible.
 
@@ -155,15 +164,14 @@ The setup works, with one important catch. A sufficiently powerful optimizer wil
 
 The fix is a **KL divergence penalty**: a term in the objective that penalizes the policy for drifting too far from the original SFT model. Think of it as a leash. A long leash (low β) gives the model freedom to exploit the reward signal aggressively. A short leash (high β) keeps it close to safe, human-written behavior. The full objective is:
 
-```
-Objective = E[ r(x,y) ] − β · KL( π_RL(y|x) || π_SFT(y|x) )
+$$\mathcal{J}_{\text{PPO}} = \mathbb{E}\!\left[ r(x,y) \right] - \beta \cdot \mathrm{KL}\!\left( \pi_{\text{RL}}(y|x) \;\Big\|\; \pi_{\text{SFT}}(y|x) \right)$$
 
-  r(x,y)   = reward model score
-  β         = KL penalty coefficient (typically 0.02 to 0.2)
-  π_RL      = current (fine-tuning) policy
-  π_SFT     = frozen reference (SFT) policy
-  KL(·||·)  = KL divergence, measuring how far the policies have drifted
-```
+<div class="eq-vars">
+$r(x,y)$ — reward model score<br>
+$\beta$ — KL penalty coefficient (typically 0.02 to 0.2)<br>
+$\pi_{\text{RL}}$ — current (fine-tuning) policy; &nbsp; $\pi_{\text{SFT}}$ — frozen reference (SFT) policy<br>
+$\mathrm{KL}(\cdot \| \cdot)$ — KL divergence, measuring how far the policies have drifted
+</div>
 
 Tune β below and watch the tug-of-war between reward exploitation and reference fidelity in real time.
 
@@ -197,17 +205,11 @@ RLHF with PPO works, but the pipeline is complex. Training a separate reward mod
 
 **Direct Preference Optimization (DPO)** found a cleaner path. It turns out that the RL-with-KL-constraint objective has a closed-form optimal policy, which means you can derive a training objective directly from preference pairs, with no reward model and no RL loop required. The math works out to:
 
-```
-L_DPO = −E[(x, y_w, y_l)] · log σ(
-    β · log( π_θ(y_w|x) / π_ref(y_w|x) )
-  − β · log( π_θ(y_l|x) / π_ref(y_l|x) )
-)
+$$\mathcal{L}_{\text{DPO}} = -\,\mathbb{E}_{(x,\, y_w,\, y_l)}\!\left[ \log \sigma\!\left( \beta \log \frac{\pi_\theta(y_w|x)}{\pi_{\text{ref}}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{\text{ref}}(y_l|x)} \right) \right]$$
 
-Intuition:
-  Increase the probability of preferred responses relative to the reference
-  Decrease the probability of dispreferred responses relative to the reference
-  β still controls how far we can deviate from the reference
-```
+<div class="eq-vars">
+The loss increases $\log \pi_\theta(y_w|x)$ relative to the reference while decreasing $\log \pi_\theta(y_l|x)$ relative to the reference. $\beta$ controls the deviation budget — the same leash as in PPO, expressed directly in policy log-ratios instead of a separate KL term.
+</div>
 
 The β coefficient is doing the same job as in PPO, just expressed directly in terms of policy log-ratios rather than reward scores. The pipeline comparison below shows exactly how much complexity DPO eliminates compared to the full RLHF setup.
 
