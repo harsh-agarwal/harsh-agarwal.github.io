@@ -61,7 +61,12 @@ This post walks through each stage of the modern post-training stack: Supervised
 </style>
 
 <script>
-MathJax = { tex: { inlineMath: [['$', '$']] } };
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$']],
+    displayMath: [['\\[', '\\]']]
+  }
+};
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
 
@@ -135,9 +140,9 @@ Since humans can't be in the loop for every gradient update (a single training r
 
 The reward model learns from pairwise comparisons. You show it a prompt alongside two responses, and it learns to predict which one a human annotator would prefer. The training objective encodes exactly this:
 
-$$P(y_w \succ y_l) = \sigma\!\left( r(x,\, y_w) - r(x,\, y_l) \right)$$
+<div>\[P(y_w \succ y_l) = \sigma\!\left( r(x,\, y_w) - r(x,\, y_l) \right)\]</div>
 
-$$\mathcal{L}_{\text{RM}} = -\,\mathbb{E}\!\left[ \log \sigma\!\left( r(x,\, y_w) - r(x,\, y_l) \right) \right]$$
+<div>\[\mathcal{L}_{\text{RM}} = -\,\mathbb{E}\!\left[ \log \sigma\!\left( r(x,\, y_w) - r(x,\, y_l) \right) \right]\]</div>
 
 <div class="eq-vars">
 $r(x, y)$ — reward score for response $y$ given prompt $x$<br>
@@ -164,7 +169,7 @@ The setup works, with one important catch. A sufficiently powerful optimizer wil
 
 The fix is a **KL divergence penalty**: a term in the objective that penalizes the policy for drifting too far from the original SFT model. Think of it as a leash. A long leash (low β) gives the model freedom to exploit the reward signal aggressively. A short leash (high β) keeps it close to safe, human-written behavior. The full objective is:
 
-$$\mathcal{J}_{\text{PPO}} = \mathbb{E}\!\left[ r(x,y) \right] - \beta \cdot \mathrm{KL}\!\left( \pi_{\text{RL}}(y|x) \;\Big\|\; \pi_{\text{SFT}}(y|x) \right)$$
+<div>\[\mathcal{J}_{\text{PPO}} = \mathbb{E}\!\left[ r(x,y) \right] - \beta \cdot \mathrm{KL}\!\left( \pi_{\text{RL}}(y|x) \;\Big\|\; \pi_{\text{SFT}}(y|x) \right)\]</div>
 
 <div class="eq-vars">
 $r(x,y)$ — reward model score<br>
@@ -205,7 +210,7 @@ RLHF with PPO works, but the pipeline is complex. Training a separate reward mod
 
 **Direct Preference Optimization (DPO)** found a cleaner path. It turns out that the RL-with-KL-constraint objective has a closed-form optimal policy, which means you can derive a training objective directly from preference pairs, with no reward model and no RL loop required. The math works out to:
 
-$$\mathcal{L}_{\text{DPO}} = -\,\mathbb{E}_{(x,\, y_w,\, y_l)}\!\left[ \log \sigma\!\left( \beta \log \frac{\pi_\theta(y_w|x)}{\pi_{\text{ref}}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{\text{ref}}(y_l|x)} \right) \right]$$
+<div>\[\mathcal{L}_{\text{DPO}} = -\,\mathbb{E}_{(x,\, y_w,\, y_l)}\!\left[ \log \sigma\!\left( \beta \log \frac{\pi_\theta(y_w|x)}{\pi_{\text{ref}}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{\text{ref}}(y_l|x)} \right) \right]\]</div>
 
 <div class="eq-vars">
 The loss increases $\log \pi_\theta(y_w|x)$ relative to the reference while decreasing $\log \pi_\theta(y_l|x)$ relative to the reference. $\beta$ controls the deviation budget — the same leash as in PPO, expressed directly in policy log-ratios instead of a separate KL term.
