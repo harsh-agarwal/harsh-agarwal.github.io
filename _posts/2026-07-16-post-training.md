@@ -2,11 +2,11 @@
 layout: playground-post
 title: "How Language Models Learn to Behave: An Interactive Guide to RLHF"
 date: 2026-07-16
-description: "An interactive deep-dive into RLHF, reward modeling, DPO, Constitutional AI, and the full post-training stack — with live playgrounds for each concept."
+description: "An interactive deep-dive into RLHF, reward modeling, DPO, Constitutional AI, and the full post-training stack, with live playgrounds for each concept."
 tags: [machine-learning, rlhf, alignment, llm, post-training]
 ---
 
-A model trained purely on next-token prediction learns to **imitate text**, not to **behave helpfully**. These are very different objectives — and closing that gap is exactly what post-training does.
+A model trained purely on next-token prediction learns to **imitate text**, not to **behave helpfully**. These are very different objectives, and closing that gap is exactly what post-training does.
 
 This post walks through each stage of the modern post-training stack: Supervised Fine-Tuning, reward modeling, PPO-based RLHF, Direct Preference Optimization, and Constitutional AI. Every concept has a live playground beneath it so you can build real intuition, not just follow equations.
 
@@ -93,11 +93,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
 ---
 
-## 01 — Why Pre-Training Isn't Enough
+## Why Pre-Training Isn't Enough
 
-Pre-training gives a model encyclopedic knowledge and fluency. It also gives it an uncensored mirror of the internet: toxic content, misinformation, contradictions, and no concept of what a user actually *wants*. Post-training steers the model toward outputs that humans genuinely value.
+If you train a language model purely on next-token prediction over internet text, you end up with something that is simultaneously impressive and deeply unreliable. It can write, reason, summarize, and converse. It can also confidently produce misinformation, generate harmful content without hesitation, and completely misread what you were actually asking for.
 
-The playground below shows how the model's **next-token distribution** changes at each stage for a fixed prompt. Toggle between stages to see which continuations become more or less probable.
+The problem isn't capability. It's that "predict the next token on internet text" and "be genuinely helpful to a specific person" are not the same objective. Pre-training makes the model fluent. Post-training makes it useful.
+
+The playground below makes this concrete. Pick a prompt and watch how the probability mass over next tokens shifts at each training stage. The pre-trained model's distribution looks very different from the final aligned model's, and understanding that shift is the whole story.
 
 <iframe id="rlhf-w1"
   src="/playgrounds/post-training/w1-distribution-shift.html"
@@ -106,17 +108,21 @@ The playground below shows how the model's **next-token distribution** changes a
 
 ---
 
-## 02 — Supervised Fine-Tuning (SFT)
+## Supervised Fine-Tuning: Teaching by Example
 
-SFT trains the model on curated **(prompt → ideal response)** pairs written by human experts. It works well but has a ceiling: humans can write good responses, but writing the *optimal* one from scratch is genuinely hard — and doing it at scale is expensive.
+The first step toward useful behavior is Supervised Fine-Tuning. You take the pre-trained model and continue training it on a curated dataset of (prompt, ideal response) pairs written by human experts. The model learns the format, style, and structure of genuinely helpful responses rather than just predicting what would come next in generic web text.
 
-> **Key insight:** It is much easier for a human to **compare** two answers and say "this one is better" than to **write** the perfect answer from scratch. This observation motivates everything that follows.
+SFT works well, but it has a real ceiling. Writing the *optimal* response to a difficult question is genuinely hard, even for experts. It requires knowing not just what to say, but how to say it for this particular model and context. Annotation at that quality doesn't scale, and the model is fundamentally bounded by the quality of the demonstrations it learns from.
+
+Here's the insight that unlocks everything that follows: **it is much easier for a human to compare two responses and say "this one is better" than to write the optimal one from scratch.** Judgment is cheaper than generation. The rest of the post-training stack is built on this observation.
 
 ---
 
-## 03 — Training a Reward Model
+## Training a Reward Model
 
-The reward model (RM) turns subjective human judgments into a **differentiable scalar signal** the optimizer can train against. It learns from pairwise preferences using a ranking loss:
+Since humans can't be in the loop for every gradient update (a single training run might process millions of examples), we need a way to convert human judgments into a signal the optimizer can use automatically. That's the job of the reward model.
+
+The reward model learns from pairwise comparisons. You show it a prompt alongside two responses, and it learns to predict which one a human annotator would prefer. The training objective encodes exactly this:
 
 ```
 P(y_w preferred over y_l) = σ( r(x, y_w) − r(x, y_l) )
@@ -124,13 +130,15 @@ P(y_w preferred over y_l) = σ( r(x, y_w) − r(x, y_l) )
 Loss = −E[ log σ( r(x, y_w) − r(x, y_l) ) ]
 
 where:
-  r(x, y) = reward score for completion y given prompt x
+  r(x, y) = reward score for response y given prompt x
   y_w     = preferred (winner) response
   y_l     = dispreferred (loser) response
   σ       = sigmoid function
 ```
 
-The playground below puts you in the annotator's seat. Click the response you prefer and watch the reward model's training loss curve update in real time.
+Once trained, the reward model is a standalone function you can query cheaply at inference time. Give it any (prompt, response) pair and it returns a scalar score. You've distilled human preference into something differentiable, and that's what makes optimization against it possible.
+
+The playground below puts you in the annotator's seat. Label a few pairs yourself and watch the reward model's training loss update as it learns from your choices.
 
 <iframe id="rlhf-w2"
   src="/playgrounds/post-training/w2-preference-labeling.html"
@@ -139,23 +147,25 @@ The playground below puts you in the annotator's seat. Click the response you pr
 
 ---
 
-## 04 — PPO and the KL Penalty
+## PPO and the KL Penalty
 
-Once we have a reward model we fine-tune the language model with **Proximal Policy Optimization (PPO)**. The model generates completions, the RM scores them, and gradients update the policy.
+With a reward model in hand, you can now fine-tune the language model against it directly. The model generates completions, the reward model scores them, and gradients flow backward through the reward signal. This is **Proximal Policy Optimization (PPO)**, borrowed from robotics RL and adapted for language.
 
-But an unconstrained optimizer will find *exploits* — outputs that score highly without being genuinely good. The fix is a **KL divergence penalty** that keeps the fine-tuned policy tethered to the original SFT model:
+The setup works, with one important catch. A sufficiently powerful optimizer will find ways to score highly on the reward model that have nothing to do with being genuinely helpful. It might learn that verbose, confident-sounding responses get high scores, or discover quirks in how the reward model was trained and exploit those patterns relentlessly. Left unconstrained, the model would eventually produce responses that look great to the reward model and are useless to a real user.
+
+The fix is a **KL divergence penalty**: a term in the objective that penalizes the policy for drifting too far from the original SFT model. Think of it as a leash. A long leash (low β) gives the model freedom to exploit the reward signal aggressively. A short leash (high β) keeps it close to safe, human-written behavior. The full objective is:
 
 ```
-Objective = E[ r(x,y) ] − β · KL( π_RL(y|x) ‖ π_SFT(y|x) )
+Objective = E[ r(x,y) ] − β · KL( π_RL(y|x) || π_SFT(y|x) )
 
   r(x,y)   = reward model score
-  β         = KL penalty coefficient (typically 0.02 – 0.2)
+  β         = KL penalty coefficient (typically 0.02 to 0.2)
   π_RL      = current (fine-tuning) policy
   π_SFT     = frozen reference (SFT) policy
-  KL(·‖·)  = KL divergence — how far the policies have drifted
+  KL(·||·)  = KL divergence, measuring how far the policies have drifted
 ```
 
-The β coefficient controls the fundamental tradeoff: **exploit the reward signal vs. stay safe near the reference.**
+Tune β below and watch the tug-of-war between reward exploitation and reference fidelity in real time.
 
 <iframe id="rlhf-w3"
   src="/playgrounds/post-training/w3-kl-tug-of-war.html"
@@ -164,13 +174,15 @@ The β coefficient controls the fundamental tradeoff: **exploit the reward signa
 
 ---
 
-## 05 — Reward Hacking
+## Reward Hacking
 
-The reward model is an imperfect proxy for human preferences. A powerful optimizer will eventually find ways to score highly that don't correspond to genuinely good outputs. This is **reward hacking**, one of the central failure modes of RLHF.
+Even with the KL penalty in place, the reward model is still just a proxy for human preferences. It was trained on a finite set of comparisons and learned to generalize. And any learned generalization can be exploited.
+
+**Reward hacking** is what happens when the optimizer finds inputs that fool the reward model into high scores without achieving the underlying goal. Responses that are verbose in exactly the way the reward model rewards. Formatting patterns that score well but annoy real users. Confident assertions about facts the reward model can't verify.
 
 > **Goodhart's Law:** "When a measure becomes a target, it ceases to be a good measure."
 
-Drag the slider below and watch the gap open between what the reward model reports and what is actually happening to output quality.
+This isn't a fixable bug so much as a fundamental tension. The gap between "what the reward model scores highly" and "what humans actually want" is always present; the question is whether the gap is small enough to matter in practice. Drag the slider below and watch that gap widen as training continues beyond the sweet spot.
 
 <iframe id="rlhf-w4"
   src="/playgrounds/post-training/w4-reward-hacking.html"
@@ -179,9 +191,11 @@ Drag the slider below and watch the gap open between what the reward model repor
 
 ---
 
-## 06 — Direct Preference Optimization (DPO)
+## DPO: Cutting Out the Middleman
 
-**DPO** is an elegant insight: the RL objective with a KL constraint has a closed-form optimal policy, which means you can derive a training objective directly from preference data — no reward model training, no RL loop, no PPO at all.
+RLHF with PPO works, but the pipeline is complex. Training a separate reward model, running PPO, managing the KL penalty, keeping multiple models in memory simultaneously — at large scale, this is expensive and finicky.
+
+**Direct Preference Optimization (DPO)** found a cleaner path. It turns out that the RL-with-KL-constraint objective has a closed-form optimal policy, which means you can derive a training objective directly from preference pairs, with no reward model and no RL loop required. The math works out to:
 
 ```
 L_DPO = −E[(x, y_w, y_l)] · log σ(
@@ -190,12 +204,12 @@ L_DPO = −E[(x, y_w, y_l)] · log σ(
 )
 
 Intuition:
-  → Increase probability of preferred responses relative to the reference model
-  → Decrease probability of dispreferred responses relative to the reference model
-  → β controls how far we can deviate from the reference
+  Increase the probability of preferred responses relative to the reference
+  Decrease the probability of dispreferred responses relative to the reference
+  β still controls how far we can deviate from the reference
 ```
 
-The pipeline comparison below shows where the complexity lives in each approach.
+The β coefficient is doing the same job as in PPO, just expressed directly in terms of policy log-ratios rather than reward scores. The pipeline comparison below shows exactly how much complexity DPO eliminates compared to the full RLHF setup.
 
 <iframe id="rlhf-w5"
   src="/playgrounds/post-training/w5-rlhf-vs-dpo.html"
@@ -204,13 +218,15 @@ The pipeline comparison below shows where the complexity lives in each approach.
 
 ---
 
-## 07 — Constitutional AI & RLAIF
+## Constitutional AI and Learning from AI Feedback
 
-Generating human preference labels is expensive. **Constitutional AI (CAI)** replaces much of this with AI-generated feedback guided by a written set of principles — the "constitution."
+Every technique described so far has quietly assumed a steady supply of human annotators. Someone writes the SFT demonstrations. Someone labels the preference pairs. At the scale modern LLMs require, this is genuinely expensive and slow, often the binding constraint on how much training you can do.
 
-The model critiques its own outputs, revises them, and the resulting (original → revised) pairs become preference training data. At scale, an AI evaluator generates preference labels directly — this is **RLAIF (RL from AI Feedback)**.
+**Constitutional AI (CAI)**, developed at Anthropic, offers a partial escape. Instead of having humans label every preference pair, you give the model a written set of principles (be helpful, be honest, avoid harm) and have it critique its own outputs against those principles. The revised response becomes the preferred one; the original becomes the dispreferred one. You generate synthetic preference data automatically, at scale, without needing a human to evaluate each pair.
 
-> **The loop:** Generate → Critique against the constitution → Revise → Use (original, revised) as a preference pair in the training set.
+Push this further and you get **RLAIF (RL from AI Feedback)**, where a separate AI evaluator generates the preference labels entirely. The feedback loop runs without humans in the critical path at all. This can produce training data orders of magnitude faster than human annotation, at a fraction of the cost.
+
+The tradeoff is fidelity. The quality of the training signal depends entirely on the quality of the constitution and the AI evaluator. If the constitution is vague or the evaluator is poorly calibrated, the training signal gets noisy. But when it's done well, CAI and RLAIF unlock the ability to run far more training rounds than human annotation alone could ever support.
 
 <iframe id="rlhf-w6"
   src="/playgrounds/post-training/w6-constitutional-ai.html"
@@ -219,11 +235,13 @@ The model critiques its own outputs, revises them, and the resulting (original �
 
 ---
 
-## 08 — Why One Round Is Never Enough
+## Why One Round Is Never Enough
 
-Modern post-training runs **multiple iterations**. Each round generates completions from the *current* model, collects preferences on those specific completions, and updates the model again. This matters because the model's distribution shifts — preferences collected on the SFT model become stale once the model has evolved.
+There's a subtle problem with running RLHF once and calling it done. The preference data you collected was labeled on responses from the SFT model. After one round of training, the model has changed: its distribution is different, the responses it generates look different, and the preferences collected on the old model are now stale. You're training a new model on data that reflects a model that no longer exists.
 
-Each round can target a different dimension: helpfulness, safety, honesty, factuality. Step through the rounds below to see how targeted training affects each axis, and notice the diminishing returns curve as training matures.
+Modern post-training pipelines deal with this by running **multiple iterations**. Each round generates fresh completions from the current model, collects preference labels on those specific outputs, and updates. The training signal stays fresh because it's always reflecting the model as it actually is right now, not as it was before the last update.
+
+Each round can also be targeted at a specific dimension: one round focused on helpfulness, the next on safety, the next on factual accuracy. The improvements diminish across rounds, but early rounds often produce the largest gains, and targeted iteration is how you shape the model across multiple axes at once. Step through the rounds below to see how each pass shifts the model's behavior.
 
 <iframe id="rlhf-w7"
   src="/playgrounds/post-training/w7-iterative-training.html"
@@ -232,9 +250,11 @@ Each round can target a different dimension: helpfulness, safety, honesty, factu
 
 ---
 
-## 09 — The Full Post-Training Stack
+## The Full Post-Training Stack
 
-The diagram below shows how all these components connect. The main flow runs left to right. DPO provides a shortcut skipping the reward model and RL loop. Iterative rounds feed the aligned model back into fresh preference collection. Constitutional AI / RLAIF replaces expensive human labels with AI-generated feedback at scale.
+Putting it all together: pre-training produces a capable but unaligned base model. SFT teaches it to respond in the format and style of a helpful assistant. Reward modeling converts human preference judgments into a differentiable signal. PPO optimizes the policy against that signal while the KL penalty keeps it from going off the rails. DPO offers a cleaner alternative that collapses reward modeling and policy optimization into a single step. Constitutional AI and RLAIF reduce the dependence on expensive human labels. Iterative rounds keep the training signal fresh as the model's distribution evolves.
+
+Each stage exists because the stage before it ran into a wall. SFT hit a ceiling on demonstration quality. RLHF pushed past it but needed a reward model. PPO needed a leash. Reward models got gamed, so you added calibration. Human annotation was too slow, so you added AI feedback. The whole stack is a sequence of answers to problems raised by the previous answer. The diagram below shows how the components connect.
 
 <iframe id="rlhf-w8"
   src="/playgrounds/post-training/w8-full-pipeline.html"
@@ -245,11 +265,11 @@ The diagram below shows how all these components connect. The main flow runs lef
 
 ## The Core Tension
 
-Every design decision in post-training is, at some level, a response to the same problem:
+Every design decision in this stack is, at some level, a response to the same fundamental problem: you want gradient descent to move the model toward "more useful to humans," but you can only give it a concrete, computable loss function. How faithfully that loss reflects what you actually want determines everything.
 
-> **How do we make the training signal accurate enough that the optimizer improves the model rather than gaming the metric?**
+SFT is limited by the quality of demonstrations. Reward models are limited by the coverage and quality of preference labels. DPO is limited by the diversity of the offline dataset. Constitutional AI is limited by how well the constitution captures human values. Iterative training helps, but the returns diminish. Each technique is a different attempt to approximate what humans value closely enough that optimization actually moves in the right direction.
 
-SFT is limited by the quality of demonstrations. Reward models are limited by the quality of preference labels. DPO is limited by the diversity of the offline dataset. Constitutional AI is limited by the quality of the constitution. Iterative training helps, but diminishing returns set in. Each technique is a different attempt to approximate what humans value faithfully enough that gradient descent moves in the right direction.
+We're still early. The stack keeps improving, the techniques keep compounding, and the gap between "what the loss measures" and "what we care about" keeps narrowing. Understanding how the pieces fit together isn't just interesting history; it's the prerequisite for pushing any of them further.
 
 ---
 
@@ -257,10 +277,10 @@ SFT is limited by the quality of demonstrations. Reward models are limited by th
 
 | Year | Paper | Contribution |
 |------|-------|--------------|
-| 2017 | Christiano et al. — *Deep RL from Human Preferences* | Original RLHF framework |
-| 2020 | Stiennon et al. — *Learning to summarize with human feedback* | RLHF applied to text generation |
-| 2022 | Ouyang et al. — *InstructGPT* | RLHF applied to large language models |
-| 2022 | Bai et al. (Anthropic) — *Constitutional AI* | CAI and RLAIF |
-| 2017 | Schulman et al. — *Proximal Policy Optimization* | The PPO algorithm |
-| 2023 | Rafailov et al. — *Direct Preference Optimization* | DPO algorithm and theory |
-| 2023 | Lightman et al. (OpenAI) — *Let's Verify Step by Step* | Process reward models |
+| 2017 | Christiano et al., *Deep RL from Human Preferences* | Original RLHF framework |
+| 2020 | Stiennon et al., *Learning to summarize with human feedback* | RLHF applied to text generation |
+| 2022 | Ouyang et al., *InstructGPT* | RLHF at LLM scale |
+| 2022 | Bai et al. (Anthropic), *Constitutional AI* | CAI and RLAIF |
+| 2017 | Schulman et al., *Proximal Policy Optimization* | The PPO algorithm |
+| 2023 | Rafailov et al., *Direct Preference Optimization* | DPO algorithm and theory |
+| 2023 | Lightman et al. (OpenAI), *Let's Verify Step by Step* | Process reward models |

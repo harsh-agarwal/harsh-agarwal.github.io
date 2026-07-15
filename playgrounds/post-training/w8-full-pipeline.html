@@ -26,79 +26,87 @@
     <span class="ttl">The Full Post-Training Stack</span>
   </div>
   <div class="body">
-<svg viewBox="0 0 780 390" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Arrow markers in warm editorial palette -->
     <marker id="arr"   markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#9c9890"/></marker>
     <marker id="arr-b" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2563eb"/></marker>
     <marker id="arr-p" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#7c3aed"/></marker>
     <marker id="arr-g" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#059669"/></marker>
+    <marker id="arr-o" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#d97706"/></marker>
   </defs>
 
-  <!-- Row 1: main pipeline boxes (light editorial cards) -->
-  <rect x="12"  y="28" width="138" height="54" rx="6" fill="#f5f3ef" stroke="#e0dcd4" stroke-width="1.5"/>
-  <text x="81"  y="50" text-anchor="middle" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">PRE-TRAINING</text>
-  <text x="81"  y="68" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">Base Model</text>
+  <!-- ── Row 1: main pipeline ── -->
+  <rect x="10"  y="42" width="152" height="68" rx="6" fill="#f5f3ef" stroke="#e0dcd4" stroke-width="1.5"/>
+  <text x="86"  y="64" text-anchor="middle" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8" letter-spacing=".8">PRE-TRAINING</text>
+  <text x="86"  y="84" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">Base Model</text>
 
-  <line x1="150" y1="55" x2="184" y2="55" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="162" y1="76" x2="198" y2="76" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <rect x="185" y="28" width="138" height="54" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
-  <text x="254" y="50" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">SFT</text>
-  <text x="254" y="68" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">SFT Model</text>
+  <rect x="200" y="42" width="152" height="68" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="276" y="64" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8" letter-spacing=".8">SFT</text>
+  <text x="276" y="84" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">SFT Model</text>
 
-  <line x1="323" y1="55" x2="357" y2="55" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="352" y1="76" x2="388" y2="76" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <rect x="358" y="28" width="148" height="54" rx="6" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5"/>
-  <text x="432" y="46" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">REWARD MODEL</text>
-  <text x="432" y="58" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">TRAINING</text>
-  <text x="432" y="73" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="11" font-weight="500">Human Preferences</text>
+  <rect x="390" y="42" width="168" height="68" rx="6" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5"/>
+  <text x="474" y="61" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8" letter-spacing=".8">REWARD MODEL</text>
+  <text x="474" y="73" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8" letter-spacing=".8">TRAINING</text>
+  <text x="474" y="89" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="11.5" font-weight="500">Human Preferences</text>
 
-  <line x1="506" y1="55" x2="540" y2="55" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="558" y1="76" x2="594" y2="76" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
 
-  <rect x="541" y="28" width="138" height="54" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
-  <text x="610" y="50" text-anchor="middle" fill="#059669" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">RL (PPO)</text>
-  <text x="610" y="68" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">Aligned Model</text>
+  <rect x="596" y="42" width="152" height="68" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+  <text x="672" y="64" text-anchor="middle" fill="#059669" font-family="'JetBrains Mono',monospace" font-size="8" letter-spacing=".8">RL (PPO)</text>
+  <text x="672" y="84" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">Aligned Model</text>
 
-  <!-- DPO shortcut arc (purple dashed) -->
-  <path d="M323 55 Q400 118 541 55" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3" fill="none" marker-end="url(#arr-p)"/>
-  <rect x="362" y="110" width="68" height="20" rx="4" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
-  <text x="396" y="124" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">DPO</text>
+  <!-- ── DPO shortcut arc (purple dashed): SFT → Aligned Model ── -->
+  <path d="M352 76 C374 158 574 158 596 76" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3" fill="none" marker-end="url(#arr-p)"/>
+  <rect x="436" y="149" width="76" height="22" rx="4" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+  <text x="474" y="164" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="10.5" font-weight="600">DPO</text>
 
-  <!-- Iterative loop (blue dashed) -->
-  <path d="M610 82 Q610 156 432 156 Q254 156 254 82" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3" fill="none" marker-end="url(#arr-b)"/>
-  <text x="432" y="150" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8.5">iterative rounds</text>
+  <!-- ── Iterative loop (blue dashed): Aligned → SFT ── -->
+  <path d="M672 110 L672 194 L276 194 L276 110" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3" fill="none" marker-end="url(#arr-b)"/>
+  <text x="474" y="190" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8.5">iterative rounds</text>
 
-  <!-- Row 2: supporting nodes -->
-  <rect x="12"  y="195" width="155" height="52" rx="6" fill="#fafaf8" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="89"  y="215" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">HUMAN ANNOTATORS</text>
-  <text x="89"  y="232" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Preference labels</text>
-  <line x1="167" y1="221" x2="185" y2="221" stroke="#2563eb" stroke-width="1" marker-end="url(#arr-b)"/>
-  <line x1="89"  y1="195" x2="89"  y2="118" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3"/>
-  <line x1="89"  y1="118" x2="358" y2="57"  stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3"/>
+  <!-- ── Row 2: supporting concepts (y=240) ── -->
 
-  <rect x="186" y="195" width="320" height="52" rx="6" fill="#faf5ff" stroke="#ddd6fe" stroke-width="1.5" stroke-dasharray="5 3"/>
-  <text x="346" y="215" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">CONSTITUTIONAL AI / RLAIF</text>
-  <text x="346" y="232" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">AI-generated feedback replaces human labels at scale</text>
-  <line x1="346" y1="195" x2="346" y2="165" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <!-- Human Annotators -->
+  <rect x="10" y="240" width="165" height="62" rx="6" fill="#fafaf8" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="92"  y="261" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="7.5" letter-spacing=".8">HUMAN ANNOTATORS</text>
+  <text x="92"  y="278" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Preference labels</text>
+  <!-- L-path: up from box top, right to RM center, up to RM box bottom -->
+  <path d="M92 240 L92 218 L474 218 L474 110" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3" fill="none" marker-end="url(#arr-b)"/>
 
-  <rect x="541" y="195" width="210" height="68" rx="6" fill="#fffbeb" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="5 3"/>
-  <text x="646" y="214" text-anchor="middle" fill="#d97706" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">KL DIVERGENCE PENALTY</text>
-  <text x="646" y="230" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Keeps policy close to SFT</text>
-  <text x="646" y="246" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Prevents reward hacking</text>
-  <line x1="610" y1="195" x2="610" y2="82"  stroke="#d97706" stroke-width="1" stroke-dasharray="4 3"/>
+  <!-- Constitutional AI / RLAIF -->
+  <rect x="240" y="240" width="295" height="62" rx="6" fill="#faf5ff" stroke="#ddd6fe" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="387" y="261" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="7.5" letter-spacing=".8">CONSTITUTIONAL AI / RLAIF</text>
+  <text x="387" y="278" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">AI-generated feedback at scale</text>
+  <!-- Connects up to the iterative rounds path -->
+  <line x1="387" y1="240" x2="387" y2="194" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr-p)"/>
 
-  <!-- Legend -->
-  <line x1="14" y1="307" x2="50" y2="307" stroke="#d4d0c8" stroke-width="1.5"/>
-  <text x="56" y="311" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">main training flow</text>
+  <!-- KL Divergence Penalty -->
+  <rect x="598" y="240" width="168" height="74" rx="6" fill="#fffbeb" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="682" y="260" text-anchor="middle" fill="#d97706" font-family="'JetBrains Mono',monospace" font-size="7.5" letter-spacing=".8">KL DIVERGENCE PENALTY</text>
+  <text x="682" y="278" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Keeps policy close to SFT</text>
+  <text x="682" y="294" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Prevents reward hacking</text>
+  <!-- Straight up to Aligned Model box bottom -->
+  <line x1="682" y1="240" x2="682" y2="110" stroke="#d97706" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr-o)"/>
 
-  <line x1="14" y1="324" x2="50" y2="324" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3"/>
-  <text x="56" y="328" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">DPO (skips reward model + RL stages)</text>
+  <!-- ── Legend ── -->
+  <line x1="14" y1="372" x2="48" y2="372" stroke="#d4d0c8" stroke-width="1.5"/>
+  <text x="56" y="376" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8.5">main training flow</text>
 
-  <line x1="14" y1="341" x2="50" y2="341" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 3"/>
-  <text x="56" y="345" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">iterative feedback loops</text>
+  <line x1="14" y1="392" x2="48" y2="392" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="56" y="396" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8.5">DPO shortcut (bypasses reward model + RL)</text>
 
-  <line x1="14" y1="358" x2="50" y2="358" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3"/>
-  <text x="56" y="362" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">AI feedback replaces human labels</text>
+  <line x1="14" y1="412" x2="48" y2="412" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="56" y="416" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8.5">iterative feedback loops</text>
+
+  <line x1="14" y1="432" x2="48" y2="432" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="56" y="436" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8.5">AI feedback replaces human labels</text>
+
+  <line x1="14" y1="452" x2="48" y2="452" stroke="#d97706" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="56" y="456" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8.5">KL divergence constraint</text>
 </svg>
   </div>
 </div>
