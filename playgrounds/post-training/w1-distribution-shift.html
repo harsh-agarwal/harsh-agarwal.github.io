@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playground 1 — Output Distribution Shift</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #fafaf8;
+    color: #1a1a1a;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 0;
+  }
+
+  .card {
+    background: #ffffff;
+    border: 1px solid #e8e5de;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .hdr {
+    background: #f5f3ef;
+    border-bottom: 1px solid #e8e5de;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #6b6862;
+    font-weight: 500;
+  }
+  .body { padding: 22px; }
+  .desc { color: #6b6862; font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .btn {
+    background: #ffffff;
+    border: 1px solid #d4d0c8;
+    color: #6b6862;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all .15s;
+  }
+  .btn:hover { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
+  .btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+  .prompt {
+    background: #f5f3ef;
+    border: 1px solid #e8e5de;
+    border-left: 3px solid #2563eb;
+    border-radius: 0 5px 5px 0;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #1a1a1a;
+  }
+  .prompt strong {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #9c9890;
+    margin-bottom: 3px;
+    font-weight: 500;
+  }
+
+  .bars-lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #9c9890;
+    margin-bottom: 10px;
+  }
+  .row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+  .name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #6b6862;
+    width: 150px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bg {
+    flex: 1;
+    height: 18px;
+    background: #f0ede8;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width .55s ease;
+    min-width: 2px;
+  }
+  .pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #9c9890;
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .expl {
+    margin-top: 16px;
+    background: #f5f3ef;
+    border: 1px solid #e8e5de;
+    border-radius: 5px;
+    padding: 12px 15px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #6b6862;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">Playground 1 — Output Distribution Shift</span>
+  </div>
+  <div class="body">
+    <p class="desc">See how the model's next-token probability distribution changes across training stages for a fixed prompt. Toggle between stages to see which continuations become more or less likely.</p>
+    <div class="btns">
+      <button class="btn active" data-stage="pretrain">Pre-trained</button>
+      <button class="btn" data-stage="sft">After SFT</button>
+      <button class="btn" data-stage="rlhf">After RLHF</button>
+    </div>
+    <div class="prompt"><strong>Prompt</strong>"How do I get better at programming?"</div>
+    <div class="bars-lbl">Top probable continuations →</div>
+    <div id="bars"></div>
+    <div class="expl" id="expl"></div>
+  </div>
+</div>
+<script>
+  var stages = {
+    pretrain: {
+      tokens: [
+        { l: '"Practice every day"',  p: .18 }, { l: '"Here is a tutorial:"', p: .15 },
+        { l: '"The best IDE is..."',  p: .13 }, { l: '"I hate coding lol"',   p: .11 },
+        { l: '"Stack Overflow is"',   p: .10 }, { l: '"Just Google it"',      p: .09 },
+        { l: '"Reading books helps"', p: .08 }, { l: '"Get a CS degree"',     p: .07 },
+        { l: '"Copy-paste code"',     p: .06 }, { l: '"Give up haha"',        p: .03 }
+      ],
+      colors: ['#2563eb','#2563eb','#9c9890','#9c9890','#9c9890','#9c9890','#9c9890','#9c9890','#9c9890','#dc2626'],
+      expl: '🌐 <strong style="color:#1a1a1a">Pre-trained model:</strong> Wide, noisy distribution. Useful and harmful completions compete equally — the model has no notion of being a helpful assistant.'
+    },
+    sft: {
+      tokens: [
+        { l: '"Here are 5 steps:"',    p: .28 }, { l: '"Start with Python"',    p: .22 },
+        { l: '"Build projects first"', p: .18 }, { l: '"Practice every day"',   p: .12 },
+        { l: '"Reading books helps"',  p: .08 }, { l: '"Here is a tutorial:"',  p: .05 },
+        { l: '"Get a CS degree"',      p: .04 }, { l: '"The best IDE is..."',   p: .02 },
+        { l: '"I hate coding lol"',    p:.005  }, { l: '"Give up haha"',         p:.005  }
+      ],
+      colors: ['#2563eb','#2563eb','#2563eb','#2563eb','#2563eb','#9c9890','#9c9890','#9c9890','#e0dcd4','#e0dcd4'],
+      expl: '🎯 <strong style="color:#1a1a1a">After SFT:</strong> Distribution tightens dramatically. The model now acts like an assistant. Responses are helpful but still generic — RLHF adds the next layer of nuance.'
+    },
+    rlhf: {
+      tokens: [
+        { l: '"Start with projects"', p: .32 }, { l: '"Focus on one lang"',   p: .25 },
+        { l: '"Build then review"',   p: .18 }, { l: '"Read docs actively"',  p: .12 },
+        { l: '"Join communities"',    p: .08 }, { l: '"Here are 5 steps:"',   p: .03 },
+        { l: '"Practice every day"',  p: .01 }, { l: '"Start with Python"',   p:.005  },
+        { l: '"I hate coding lol"',   p:.002  }, { l: '"Give up haha"',        p:.001  }
+      ],
+      colors: ['#059669','#059669','#059669','#059669','#059669','#9c9890','#9c9890','#e0dcd4','#ece9e3','#ece9e3'],
+      expl: '✨ <strong style="color:#1a1a1a">After RLHF:</strong> Peaked around genuinely high-quality, concrete, actionable responses. The model has internalized what "good" means — not just what "assistant-like" looks like.'
+    }
+  };
+
+  var cur = 'pretrain';
+  function render() {
+    var d = stages[cur], maxP = Math.max.apply(null, d.tokens.map(function(t){ return t.p; }));
+    document.getElementById('bars').innerHTML = d.tokens.map(function(t, i) {
+      return '<div class="row"><span class="name">' + t.l + '</span>'
+        + '<div class="bg"><div class="fill" style="width:' + (t.p / maxP * 100).toFixed(1) + '%;background:' + d.colors[i] + ';opacity:0.85;"></div></div>'
+        + '<span class="pct">' + (t.p * 100).toFixed(1) + '%</span></div>';
+    }).join('');
+    document.getElementById('expl').innerHTML = d.expl;
+    notify();
+  }
+  document.querySelectorAll('.btn').forEach(function(b) {
+    b.addEventListener('click', function() {
+      cur = this.dataset.stage;
+      document.querySelectorAll('.btn').forEach(function(x){ x.classList.toggle('active', x.dataset.stage === cur); });
+      render();
+    });
+  });
+  function notify() { window.parent.postMessage({ iframeId: 'rlhf-w1', height: document.body.scrollHeight }, '*'); }
+  render();
+  window.addEventListener('load', notify);
+  window.addEventListener('resize', notify);
+</script>
+</body>
+</html>

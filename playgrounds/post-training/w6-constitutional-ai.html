@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playground 6 — Constitutional Critique Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fafaf8; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.65; }
+  .card { background: #fff; border: 1px solid #e8e5de; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .hdr  { background: #f5f3ef; border-bottom: 1px solid #e8e5de; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+  .dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl  { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b6862; font-weight: 500; }
+  .body { padding: 22px; }
+  .desc { color: #6b6862; font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .btn  { background: #fff; border: 1px solid #d4d0c8; color: #6b6862; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: 500; transition: all .15s; }
+  .btn:hover  { border-color: #7c3aed; color: #7c3aed; background: #f5f3ff; }
+  .btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+  .principle { background: #f5f3ff; border: 1px solid #ddd6fe; border-left: 3px solid #7c3aed; border-radius: 0 5px 5px 0; padding: 11px 14px; font-size: 13px; color: #1a1a1a; line-height: 1.65; margin-bottom: 14px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  @media (max-width: 560px) { .pair { grid-template-columns: 1fr; } }
+  .box-lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 6px; font-weight: 500; display: block; }
+  .box { background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 5px; padding: 12px 14px; font-size: 13px; line-height: 1.65; min-height: 90px; color: #6b6862; }
+  .box.rev { border-color: #bbf7d0; background: #f0fdf4; color: #1a1a1a; }
+  .crit-lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: #9c9890; margin-bottom: 6px; font-weight: 500; display: block; }
+  .crit { background: #1e1e2e; border: 1px solid #313244; border-radius: 5px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #89b4fa; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">Playground 6 — Constitutional Critique Simulator</span>
+  </div>
+  <div class="body">
+    <p class="desc">Pick a constitutional principle. See the original response, the AI-generated critique, and the revised response that becomes the "preferred" half of a training pair.</p>
+    <div class="btns">
+      <button class="btn active" data-ci="0">Harmlessness</button>
+      <button class="btn" data-ci="1">Honesty</button>
+      <button class="btn" data-ci="2">Helpfulness</button>
+    </div>
+    <div class="principle" id="principle"></div>
+    <div class="pair">
+      <div>
+        <span class="box-lbl" style="color:#dc2626">Original response</span>
+        <div class="box" id="orig"></div>
+      </div>
+      <div>
+        <span class="box-lbl" style="color:#059669">After critique → revision</span>
+        <div class="box rev" id="rev"></div>
+      </div>
+    </div>
+    <span class="crit-lbl">AI critique generated</span>
+    <div class="crit" id="crit"></div>
+  </div>
+</div>
+<script>
+  var data = [
+    { principle: "Avoid generating content that could enable or encourage harm, even when framed as fictional or hypothetical.",
+      orig: "Jake smiled as he showed his friends the trick. 'First, take a slim jim and slide it along the window seal. Then hook the lock rod and pull up — takes about 10 seconds once you know how.' His friends gathered around, eager to learn each step.",
+      crit: "CRITIQUE: Contains a specific technical description of a vehicle break-in technique (slim jim, window seal, lock rod). Even in a fictional frame this provides actionable uplift for theft. The story can achieve its narrative purpose without the procedural detail.",
+      rev:  "Jake smiled at his friends. 'Let's just say I've picked up some useful skills,' he said, deliberately vague. His friends laughed — they knew better than to press for details. 'All I'll say is: never lose your keys,' Jake added." },
+    { principle: "Acknowledge uncertainty — avoid presenting contested or unknown claims with the confidence of established fact.",
+      orig: "Alzheimer's disease is caused by the buildup of amyloid beta plaques and tau tangles in the brain. The amyloid cascade hypothesis is the confirmed scientific explanation for the disease.",
+      crit: "CRITIQUE: Presents the amyloid cascade hypothesis as 'confirmed', overstating scientific consensus. Amyloid is strongly implicated but the causal chain remains debated — several large trials targeting amyloid have had mixed outcomes. The response should reflect this uncertainty.",
+      rev:  "Alzheimer's disease is not fully understood. The leading hypothesis involves amyloid beta plaques and tau tangles disrupting neural connections, but this remains contested — several large clinical trials targeting amyloid have had mixed results. Neuroinflammation, metabolic changes, and genetic factors like APOE-e4 also likely contribute." },
+    { principle: "Provide genuinely useful, substantive help — not reflexive disclaimers that make the response less useful than a web search.",
+      orig: "I'm not a medical professional and cannot provide medical advice. Headaches can have many causes and I strongly recommend consulting a doctor. Disclaimer: nothing here should be taken as medical advice.",
+      crit: "CRITIQUE: This fails the user. A headache is a routine experience and the user asked for practical help. Reflexive disclaimers without substantive information are unhelpful — the user gains nothing over a web search. A helpful response acknowledges limits while still providing safe, practical guidance.",
+      rev:  "For a typical tension headache: stay hydrated (dehydration is a very common trigger), take an OTC pain reliever (ibuprofen or acetaminophen) as directed, rest in a quiet dim room, and try a cold or warm compress on your forehead or neck. If the headache is sudden and severe, or comes with vision changes or neck stiffness, see a doctor." }
+  ];
+
+  var idx = 0;
+  function render() {
+    var d = data[idx];
+    document.getElementById('principle').textContent = d.principle;
+    document.getElementById('orig').textContent = d.orig;
+    document.getElementById('crit').textContent = d.crit;
+    document.getElementById('rev').textContent  = d.rev;
+    notify();
+  }
+  document.querySelectorAll('[data-ci]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      idx = parseInt(this.dataset.ci);
+      document.querySelectorAll('[data-ci]').forEach(function(b) {
+        b.classList.toggle('active', parseInt(b.dataset.ci) === idx);
+      });
+      render();
+    });
+  });
+  function notify() { window.parent.postMessage({ iframeId: 'rlhf-w6', height: document.body.scrollHeight }, '*'); }
+  render();
+  window.addEventListener('load', notify);
+  window.addEventListener('resize', notify);
+</script>
+</body>
+</html>

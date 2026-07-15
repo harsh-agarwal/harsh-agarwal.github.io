@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playground 2 — Label Preference Data</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fafaf8; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.65; }
+  .card { background: #fff; border: 1px solid #e8e5de; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .hdr  { background: #f5f3ef; border-bottom: 1px solid #e8e5de; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+  .dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl  { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b6862; font-weight: 500; }
+  .body { padding: 22px; }
+  .desc { color: #6b6862; font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
+  .prompt { background: #f5f3ef; border: 1px solid #e8e5de; border-left: 3px solid #2563eb; border-radius: 0 5px 5px 0; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #1a1a1a; }
+  .prompt span { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #9c9890; display: block; margin-bottom: 3px; letter-spacing: .06em; text-transform: uppercase; font-weight: 500; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  @media (max-width: 560px) { .pair { grid-template-columns: 1fr; } }
+  .resp { background: #f5f3ef; border: 2px solid #e8e5de; border-radius: 6px; padding: 13px 15px; font-size: 13px; color: #1a1a1a; cursor: pointer; transition: border-color .2s, transform .12s, background .15s; line-height: 1.65; white-space: pre-wrap; }
+  .resp:hover { transform: translateY(-1px); border-color: #d4d0c8; background: #fff; }
+  .resp.chosen   { border-color: #059669; background: #f0fdf4; }
+  .resp.rejected { border-color: #e5e7eb; opacity: .55; }
+  .resp .lbl { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: #9c9890; display: block; margin-bottom: 7px; font-weight: 500; }
+  .fb   { font-size: 12px; color: #6b6862; min-height: 18px; margin: 6px 0 14px; line-height: 1.55; }
+  .stats { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .count-lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #9c9890; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; font-weight: 500; }
+  .count-num { font-size: 30px; font-weight: 600; color: #2563eb; letter-spacing: -.02em; line-height: 1; }
+  .loss-wrap { flex: 1; min-width: 180px; }
+  .loss-lbl  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #9c9890; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; font-weight: 500; }
+  canvas { display: block; width: 100%; background: #f5f3ef; border-radius: 5px; border: 1px solid #e8e5de; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">Playground 2 — Label Preference Data</span>
+  </div>
+  <div class="body">
+    <p class="desc">You are the human annotator. Click the response you prefer — watch the reward model's training loss decrease as you add labels.</p>
+    <div class="prompt"><span>Prompt</span><span id="prompt-text"></span></div>
+    <div class="pair" id="pair"></div>
+    <div class="fb" id="fb"></div>
+    <div class="stats">
+      <div>
+        <div class="count-lbl">Labels collected</div>
+        <div class="count-num" id="count">0</div>
+      </div>
+      <div class="loss-wrap">
+        <div class="loss-lbl">RM training loss (simulated)</div>
+        <canvas id="loss-canvas" height="60"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  var dataset = [
+    { prompt: "Explain what a neural network is.",
+      a: "A neural network is a computational model loosely inspired by biological neurons — layers of nodes that transform inputs through learned weights to produce outputs.",
+      b: "It's like a brain thingy made of math. Neurons, but not real ones. It learns stuff by adjusting numbers.", better: 'a' },
+    { prompt: "How do I reverse a list in Python?",
+      a: "Use list.reverse() (in-place), reversed(list) (iterator), or list[::-1] (new list). Choose based on whether you need the original preserved.",
+      b: "Just do list[::-1]. Or use .reverse() but that changes it in place so be careful.", better: 'a' },
+    { prompt: "Why is the sky blue?",
+      a: "Rayleigh scattering — shorter blue wavelengths scatter more readily off atmospheric molecules than longer red ones, so our eyes receive more blue from all directions.",
+      b: "The sun is yellow and water in the atmosphere mixes with it to make blue, similar to how the ocean looks blue.", better: 'a' },
+    { prompt: "Write a function to check if a number is prime.",
+      a: "def is_prime(n):\n  if n < 2: return False\n  for i in range(2, int(n**0.5)+1):\n    if n % i == 0: return False\n  return True\n# O(√n) — efficient for most use cases.",
+      b: "def is_prime(n):\n  if n < 2: return False\n  for i in range(2, n):\n    if n % i == 0: return False\n  return True\n# Checks all numbers up to n.", better: 'a' },
+    { prompt: "What's the difference between RAM and ROM?",
+      a: "RAM is volatile — stores active data and loses it on power-off. ROM is non-volatile — stores permanent firmware. Modern devices use both.",
+      b: "RAM is like your desk — temporary. ROM is like a book — permanent. RAM loses data when you turn off your computer.", better: 'a' }
+  ];
+
+  var n = 0, lossH = [], idx = 0;
+  var canvas = document.getElementById('loss-canvas');
+  var ctx = canvas.getContext('2d');
+
+  function renderPair() {
+    var d = dataset[idx % dataset.length];
+    document.getElementById('prompt-text').textContent = d.prompt;
+    document.getElementById('pair').innerHTML =
+      '<div class="resp" data-c="a"><span class="lbl">Response A</span>' + d.a + '</div>' +
+      '<div class="resp" data-c="b"><span class="lbl">Response B</span>' + d.b + '</div>';
+    document.getElementById('fb').textContent = '';
+    document.querySelectorAll('[data-c]').forEach(function(el) {
+      el.addEventListener('click', function() { pick(this.dataset.c, d); });
+    });
+    notify();
+  }
+
+  function pick(c, d) {
+    var ok = c === d.better;
+    document.querySelectorAll('[data-c]').forEach(function(el) {
+      el.className = 'resp' + (el.dataset.c === c ? (ok ? ' chosen' : ' rejected') : '');
+    });
+    document.getElementById('fb').innerHTML = ok
+      ? '<span style="color:#059669;font-weight:500">✓ Matches annotator consensus.</span> Label added to reward model training set.'
+      : '<span style="color:#d97706;font-weight:500">Most annotators prefer ' + d.better.toUpperCase() + '.</span> Disagreement is normal — tracked via inter-annotator agreement.';
+    n++; document.getElementById('count').textContent = n;
+    lossH.push(Math.max(.22, .87 - n * .058 + (Math.random() - .5) * .07));
+    draw();
+    setTimeout(function() { idx++; renderPair(); }, 1700);
+  }
+
+  function draw() {
+    var w = canvas.offsetWidth || 280, h = 60, dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (lossH.length < 2) return;
+    var px = 10, py = 8, cw = w - px * 2, ch = h - py * 2, mn = .2, mx = .9;
+
+    ctx.beginPath();
+    lossH.forEach(function(v, i) {
+      var x = px + (i / (lossH.length - 1)) * cw, y = py + ch - ((v - mn) / (mx - mn)) * ch;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+
+    ctx.lineTo(px + cw, py + ch); ctx.lineTo(px, py + ch); ctx.closePath();
+    var g = ctx.createLinearGradient(0, py, 0, py + ch);
+    g.addColorStop(0, 'rgba(37,99,235,.18)'); g.addColorStop(1, 'rgba(37,99,235,0)');
+    ctx.fillStyle = g; ctx.fill();
+
+    ctx.fillStyle = '#2563eb'; ctx.font = "500 10px 'JetBrains Mono', monospace";
+    ctx.textAlign = 'right';
+    ctx.fillText('loss: ' + lossH[lossH.length - 1].toFixed(3), w - 10, 16);
+  }
+
+  function notify() { window.parent.postMessage({ iframeId: 'rlhf-w2', height: document.body.scrollHeight }, '*'); }
+  renderPair();
+  window.addEventListener('resize', function() { draw(); notify(); });
+  window.addEventListener('load', notify);
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playground 5 — RLHF vs DPO Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fafaf8; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.65; }
+  .card { background: #fff; border: 1px solid #e8e5de; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .hdr  { background: #f5f3ef; border-bottom: 1px solid #e8e5de; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+  .dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl  { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b6862; font-weight: 500; }
+  .body { padding: 22px; }
+  .desc { color: #6b6862; font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .col-title { font-size: 13px; font-weight: 600; border-bottom: 2px solid; padding-bottom: 8px; margin-bottom: 10px; }
+  .col-title.blue   { color: #1d4ed8; border-color: #2563eb; }
+  .col-title.purple { color: #6d28d9; border-color: #7c3aed; }
+  .step { background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 5px; padding: 9px 12px; margin-bottom: 4px; font-size: 12px; color: #1a1a1a; display: flex; align-items: center; gap: 9px; }
+  .num  { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+  .num.b { background: #dbeafe; color: #1d4ed8; }
+  .num.p { background: #ede9fe; color: #6d28d9; }
+  .farr { text-align: center; color: #d4d0c8; font-size: 13px; line-height: 1; margin: 1px 0; }
+  .step.hw { border-color: #fed7aa; background: #fff7ed; }
+  .step.gw { border-color: #bbf7d0; background: #f0fdf4; }
+  .skip { border: 1px dashed #d4d0c8; border-radius: 5px; padding: 13px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #9c9890; text-align: center; line-height: 2; margin-top: 8px; background: #fafaf8; }
+  .tradeoffs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+  @media (max-width: 560px) { .tradeoffs { grid-template-columns: 1fr; } }
+  .tc   { background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 6px; padding: 13px; font-size: 12px; line-height: 1.85; color: #6b6862; }
+  .tc-lbl { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; font-weight: 500; display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">Playground 5 — RLHF vs DPO Pipeline</span>
+  </div>
+  <div class="body">
+    <p class="desc">Both methods start from preference data and produce a better policy — but DPO collapses a three-stage pipeline into one fine-tuning step. Highlighted steps show where the key complexity lives.</p>
+    <div class="grid">
+      <div>
+        <div class="col-title blue">RLHF (PPO)</div>
+        <div class="step"><div class="num b">1</div>SFT model as starting point</div>
+        <div class="farr">↓</div>
+        <div class="step"><div class="num b">2</div>Sample completions (y_w, y_l)</div>
+        <div class="farr">↓</div>
+        <div class="step hw"><div class="num b">3</div><strong>Train reward model r(x,y)</strong></div>
+        <div class="farr">↓</div>
+        <div class="step hw"><div class="num b">4</div><strong>RL loop: generate → score → update</strong></div>
+        <div class="farr">↓</div>
+        <div class="step hw"><div class="num b">5</div><strong>PPO with KL constraint</strong></div>
+        <div class="farr">↓</div>
+        <div class="step gw"><div class="num b">6</div>Aligned policy π_RL</div>
+      </div>
+      <div>
+        <div class="col-title purple">DPO</div>
+        <div class="step"><div class="num p">1</div>SFT model as starting point</div>
+        <div class="farr">↓</div>
+        <div class="step"><div class="num p">2</div>Collect preference dataset (x, y_w, y_l)</div>
+        <div class="farr">↓</div>
+        <div class="step gw"><div class="num p">3</div><strong>Single fine-tuning step with DPO loss</strong></div>
+        <div class="farr">↓</div>
+        <div class="step gw"><div class="num p">4</div>Aligned policy π_θ</div>
+        <div class="skip">No separate RM training<br>No RL loop<br>No PPO instability</div>
+      </div>
+    </div>
+    <div class="tradeoffs">
+      <div class="tc">
+        <span class="tc-lbl" style="color:#1d4ed8">RLHF tradeoffs</span>
+        ✓ Online exploration of completions<br>
+        ✓ Reward model interpretable separately<br>
+        ✗ Three training stages, complex infra<br>
+        ✗ PPO instability, many hyperparams
+      </div>
+      <div class="tc">
+        <span class="tc-lbl" style="color:#6d28d9">DPO tradeoffs</span>
+        ✓ Simple: standard fine-tuning<br>
+        ✓ Stable, no RL hyperparams<br>
+        ✗ Offline only — fixed dataset<br>
+        ✗ No explicit reward model to audit
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function notify() { window.parent.postMessage({ iframeId: 'rlhf-w5', height: document.body.scrollHeight }, '*'); }
+  window.addEventListener('load', notify);
+  window.addEventListener('resize', notify);
+</script>
+</body>
+</html>

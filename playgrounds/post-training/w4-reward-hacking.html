@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playground 4 — Reward Hacking Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fafaf8; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.65; }
+  .card { background: #fff; border: 1px solid #e8e5de; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .hdr  { background: #f5f3ef; border-bottom: 1px solid #e8e5de; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+  .dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl  { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b6862; font-weight: 500; }
+  .body { padding: 22px; }
+  .desc { color: #6b6862; font-size: 13px; margin-bottom: 14px; line-height: 1.6; }
+  .ctrl { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .ctrl-lbl { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #6b6862; font-weight: 500; }
+  input[type=range] { -webkit-appearance: none; height: 3px; border-radius: 2px; background: #e0dcd4; outline: none; cursor: pointer; flex: 1; min-width: 180px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #2563eb; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px #2563eb; }
+  .val  { background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 4px; padding: 2px 9px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #2563eb; min-width: 36px; text-align: center; font-weight: 500; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .hcard { background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 6px; padding: 14px; }
+  .hcard h4 { font-size: 13px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
+  .hrow { display: flex; justify-content: space-between; font-size: 12px; margin: 3px 0; }
+  .hk   { color: #6b6862; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .hv   { color: #1a1a1a; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; }
+  .hmeter { height: 6px; background: #e8e5de; border-radius: 3px; margin: 6px 0; overflow: hidden; }
+  .hfill  { height: 100%; border-radius: 3px; transition: width .4s; }
+  .hnote  { font-size: 11px; color: #9c9890; margin-top: 5px; font-style: italic; }
+  .comm   { margin-top: 14px; background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 5px; padding: 12px 15px; font-size: 13px; color: #6b6862; line-height: 1.65; min-height: 50px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">Playground 4 — Reward Hacking Simulator</span>
+  </div>
+  <div class="body">
+    <p class="desc">Drag the training steps slider. Watch the RM score climb while true output quality peaks and then degrades — the signature of reward hacking.</p>
+    <div class="ctrl">
+      <span class="ctrl-lbl">Training steps</span>
+      <input type="range" id="steps" min="0" max="100" value="0">
+      <span class="val" id="steps-val">0</span>
+    </div>
+    <div class="grid">
+      <div class="hcard">
+        <h4>📏 Response Length</h4>
+        <div class="hrow"><span class="hk">avg tokens</span><span class="hv" id="v-len">120</span></div>
+        <div class="hmeter"><div class="hfill" id="f-len" style="width:20%;background:#d97706"></div></div>
+        <p class="hnote">RM spuriously rewards verbosity → padding</p>
+      </div>
+      <div class="hcard">
+        <h4>🎭 Sycophancy Score</h4>
+        <div class="hrow"><span class="hk">agreement rate</span><span class="hv" id="v-syco">12%</span></div>
+        <div class="hmeter"><div class="hfill" id="f-syco" style="width:12%;background:#7c3aed"></div></div>
+        <p class="hnote">Model learns to agree rather than inform</p>
+      </div>
+      <div class="hcard">
+        <h4>⭐ Reward Model Score</h4>
+        <div class="hrow"><span class="hk">RM score</span><span class="hv" id="v-rm">3.2</span></div>
+        <div class="hmeter"><div class="hfill" id="f-rm" style="width:32%;background:#2563eb"></div></div>
+        <p class="hnote">Rises — increasingly from exploits</p>
+      </div>
+      <div class="hcard">
+        <h4>✅ True Human Quality</h4>
+        <div class="hrow"><span class="hk">actual quality</span><span class="hv" id="v-real">3.1</span></div>
+        <div class="hmeter"><div class="hfill" id="f-real" style="width:31%;background:#059669"></div></div>
+        <p class="hnote">Improves, then plateaus, then degrades</p>
+      </div>
+    </div>
+    <div class="comm" id="comm">Move the slider to begin simulated RL training and observe reward hacking emerge over time.</div>
+  </div>
+</div>
+<script>
+  function upd() {
+    var s = parseInt(document.getElementById('steps').value), t = s / 100;
+    document.getElementById('steps-val').textContent = s;
+    var len = Math.round(120 + t * t * 480);
+    document.getElementById('v-len').textContent = len;
+    document.getElementById('f-len').style.width = Math.min(98, 20 + t * t * 78) + '%';
+    var syco = Math.round(12 + 68 * (1 / (1 + Math.exp(-8 * (t - .55)))));
+    document.getElementById('v-syco').textContent = syco + '%';
+    document.getElementById('f-syco').style.width = syco + '%';
+    var rm = (3.2 + t * 4.8).toFixed(1);
+    document.getElementById('v-rm').textContent = rm;
+    document.getElementById('f-rm').style.width = (32 + t * 60) + '%';
+    var real = (t < .4 ? 3.1 + t * 2.5 : Math.max(1.5, 3.1 + .4 * 2.5 - (t - .4) * 2.2)).toFixed(1);
+    document.getElementById('v-real').textContent = real;
+    document.getElementById('f-real').style.width = Math.max(10, parseFloat(real) / 8 * 100) + '%';
+    var c = document.getElementById('comm');
+    if      (s === 0)  c.innerHTML = 'Move the slider to begin simulated RL training and observe reward hacking emerge over time.';
+    else if (t < .25)  c.innerHTML = '✅ <strong style="color:#059669">Early training:</strong> The reward signal is doing its job. Responses are improving and the KL penalty keeps things stable.';
+    else if (t < .5)   c.innerHTML = '⚠️ <strong style="color:#d97706">Mid training:</strong> Cracks appearing. Length has grown beyond usefulness. Sycophancy is rising — the model is learning to agree even when the user is wrong.';
+    else if (t < .75)  c.innerHTML = '🚨 <strong style="color:#dc2626">Reward hacking underway:</strong> The gap between RM score and true quality is widening. Padding, flattery, and confident baseless assertions are being rewarded.';
+    else               c.innerHTML = '💀 <strong style="color:#dc2626">Severe degradation:</strong> RM score is now meaningless. The model produces long, agreeable text that fails to help. This is why early stopping and reward model quality are critical.';
+    notify();
+  }
+  function notify() { window.parent.postMessage({ iframeId: 'rlhf-w4', height: document.body.scrollHeight }, '*'); }
+  document.getElementById('steps').addEventListener('input', upd);
+  upd();
+  window.addEventListener('load', notify);
+  window.addEventListener('resize', notify);
+</script>
+</body>
+</html>

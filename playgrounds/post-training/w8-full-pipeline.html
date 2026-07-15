@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Full Post-Training Stack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fafaf8; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; font-size: 14px; }
+  .card { background: #fff; border: 1px solid #e8e5de; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .hdr  { background: #f5f3ef; border-bottom: 1px solid #e8e5de; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+  .dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl  { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b6862; font-weight: 500; }
+  .body { padding: 22px; }
+  svg   { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">The Full Post-Training Stack</span>
+  </div>
+  <div class="body">
+<svg viewBox="0 0 780 390" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Arrow markers in warm editorial palette -->
+    <marker id="arr"   markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#9c9890"/></marker>
+    <marker id="arr-b" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2563eb"/></marker>
+    <marker id="arr-p" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#7c3aed"/></marker>
+    <marker id="arr-g" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#059669"/></marker>
+  </defs>
+
+  <!-- Row 1: main pipeline boxes (light editorial cards) -->
+  <rect x="12"  y="28" width="138" height="54" rx="6" fill="#f5f3ef" stroke="#e0dcd4" stroke-width="1.5"/>
+  <text x="81"  y="50" text-anchor="middle" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">PRE-TRAINING</text>
+  <text x="81"  y="68" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">Base Model</text>
+
+  <line x1="150" y1="55" x2="184" y2="55" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="185" y="28" width="138" height="54" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="254" y="50" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">SFT</text>
+  <text x="254" y="68" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">SFT Model</text>
+
+  <line x1="323" y1="55" x2="357" y2="55" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="358" y="28" width="148" height="54" rx="6" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.5"/>
+  <text x="432" y="46" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">REWARD MODEL</text>
+  <text x="432" y="58" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">TRAINING</text>
+  <text x="432" y="73" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="11" font-weight="500">Human Preferences</text>
+
+  <line x1="506" y1="55" x2="540" y2="55" stroke="#d4d0c8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="541" y="28" width="138" height="54" rx="6" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1.5"/>
+  <text x="610" y="50" text-anchor="middle" fill="#059669" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">RL (PPO)</text>
+  <text x="610" y="68" text-anchor="middle" fill="#1a1a1a" font-family="'Inter',sans-serif" font-size="13" font-weight="600">Aligned Model</text>
+
+  <!-- DPO shortcut arc (purple dashed) -->
+  <path d="M323 55 Q400 118 541 55" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3" fill="none" marker-end="url(#arr-p)"/>
+  <rect x="362" y="110" width="68" height="20" rx="4" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1"/>
+  <text x="396" y="124" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="10" font-weight="600">DPO</text>
+
+  <!-- Iterative loop (blue dashed) -->
+  <path d="M610 82 Q610 156 432 156 Q254 156 254 82" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3" fill="none" marker-end="url(#arr-b)"/>
+  <text x="432" y="150" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8.5">iterative rounds</text>
+
+  <!-- Row 2: supporting nodes -->
+  <rect x="12"  y="195" width="155" height="52" rx="6" fill="#fafaf8" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="89"  y="215" text-anchor="middle" fill="#2563eb" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">HUMAN ANNOTATORS</text>
+  <text x="89"  y="232" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Preference labels</text>
+  <line x1="167" y1="221" x2="185" y2="221" stroke="#2563eb" stroke-width="1" marker-end="url(#arr-b)"/>
+  <line x1="89"  y1="195" x2="89"  y2="118" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3"/>
+  <line x1="89"  y1="118" x2="358" y2="57"  stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <rect x="186" y="195" width="320" height="52" rx="6" fill="#faf5ff" stroke="#ddd6fe" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="346" y="215" text-anchor="middle" fill="#7c3aed" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">CONSTITUTIONAL AI / RLAIF</text>
+  <text x="346" y="232" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">AI-generated feedback replaces human labels at scale</text>
+  <line x1="346" y1="195" x2="346" y2="165" stroke="#7c3aed" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+
+  <rect x="541" y="195" width="210" height="68" rx="6" fill="#fffbeb" stroke="#fde68a" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="646" y="214" text-anchor="middle" fill="#d97706" font-family="'JetBrains Mono',monospace" font-size="8.5" letter-spacing=".8">KL DIVERGENCE PENALTY</text>
+  <text x="646" y="230" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Keeps policy close to SFT</text>
+  <text x="646" y="246" text-anchor="middle" fill="#6b6862" font-family="'Inter',sans-serif" font-size="11">Prevents reward hacking</text>
+  <line x1="610" y1="195" x2="610" y2="82"  stroke="#d97706" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <!-- Legend -->
+  <line x1="14" y1="307" x2="50" y2="307" stroke="#d4d0c8" stroke-width="1.5"/>
+  <text x="56" y="311" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">main training flow</text>
+
+  <line x1="14" y1="324" x2="50" y2="324" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="56" y="328" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">DPO (skips reward model + RL stages)</text>
+
+  <line x1="14" y1="341" x2="50" y2="341" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="56" y="345" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">iterative feedback loops</text>
+
+  <line x1="14" y1="358" x2="50" y2="358" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="56" y="362" fill="#9c9890" font-family="'JetBrains Mono',monospace" font-size="9">AI feedback replaces human labels</text>
+</svg>
+  </div>
+</div>
+<script>
+  function notify() { window.parent.postMessage({ iframeId: 'rlhf-w8', height: document.body.scrollHeight }, '*'); }
+  window.addEventListener('load', notify);
+  window.addEventListener('resize', notify);
+</script>
+</body>
+</html>

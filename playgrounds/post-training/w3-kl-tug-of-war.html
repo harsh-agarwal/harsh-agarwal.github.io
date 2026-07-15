@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playground 3 — KL Tug-of-War</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fafaf8; color: #1a1a1a; font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.65; }
+  .card { background: #fff; border: 1px solid #e8e5de; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .hdr  { background: #f5f3ef; border-bottom: 1px solid #e8e5de; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+  .dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ttl  { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b6862; font-weight: 500; }
+  .body { padding: 22px; }
+  .desc { color: #6b6862; font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+  .ctrl { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .ctrl-lbl { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #6b6862; width: 110px; flex-shrink: 0; font-weight: 500; }
+  input[type=range] { -webkit-appearance: none; height: 3px; border-radius: 2px; background: #e0dcd4; outline: none; cursor: pointer; flex: 1; min-width: 120px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #2563eb; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 0 1px #2563eb; }
+  .val  { background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 4px; padding: 2px 9px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #2563eb; min-width: 44px; text-align: center; font-weight: 500; }
+  .zone-labels { display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #9c9890; margin: 6px 0 4px; }
+  .track { height: 48px; background: #f5f3ef; border-radius: 24px; position: relative; overflow: visible; margin: 4px 0 6px; border: 1px solid #e0dcd4; }
+  .tfl  { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 24px; transition: width .3s; background: linear-gradient(90deg, rgba(220,38,38,.15), rgba(220,38,38,.02)); }
+  .tfr  { position: absolute; top: 0; bottom: 0; right: 0; border-radius: 24px; transition: width .3s; background: linear-gradient(270deg, rgba(37,99,235,.15), rgba(37,99,235,.02)); }
+  .tmark { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 36px; height: 36px; border-radius: 50%; background: #fff; border: 2px solid #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,.2); display: flex; align-items: center; justify-content: center; font-size: 16px; transition: left .3s; z-index: 2; }
+  .tug-lbl { display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #9c9890; margin-top: 5px; }
+  .metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .metric { background: #f5f3ef; border: 1px solid #e8e5de; border-radius: 6px; padding: 12px; text-align: center; }
+  .metric-lbl { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #9c9890; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; font-weight: 500; }
+  .metric-val { font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+  .warn { margin-top: 12px; border-radius: 5px; padding: 10px 14px; font-size: 12px; display: none; line-height: 1.6; border-left: 3px solid; border-radius: 0 5px 5px 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="hdr">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#febc2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="ttl">Playground 3 — The KL Tug-of-War</span>
+  </div>
+  <div class="body">
+    <p class="desc">Adjust β (KL penalty) and reward strength. The policy marker settles between reward maximization and the KL constraint. Too low → reward hacking. Too high → training stalls.</p>
+    <div class="ctrl">
+      <span class="ctrl-lbl">β (KL penalty)</span>
+      <input type="range" id="kl-beta" min="0" max="1" step="0.01" value="0.1">
+      <span class="val" id="beta-val">0.10</span>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">Reward strength</span>
+      <input type="range" id="kl-rew" min="0" max="1" step="0.01" value="0.7">
+      <span class="val" id="rew-val">0.70</span>
+    </div>
+    <div class="zone-labels">
+      <span style="color:#dc2626">← Reward hacking zone</span>
+      <span style="color:#2563eb">KL collapse zone →</span>
+    </div>
+    <div class="track">
+      <div class="tfl" id="tfl" style="width:50%"></div>
+      <div class="tfr" id="tfr" style="width:50%"></div>
+      <div class="tmark" id="tmark" style="left:50%">🤖</div>
+    </div>
+    <div class="tug-lbl">
+      <span style="color:#dc2626">High reward, high drift</span>
+      <span style="color:#2563eb">Low drift, minimal gain</span>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="metric-lbl">Reward gain</div><div class="metric-val" style="color:#059669" id="m-rg"></div></div>
+      <div class="metric"><div class="metric-lbl">KL penalty</div><div class="metric-val" style="color:#dc2626" id="m-kp"></div></div>
+      <div class="metric"><div class="metric-lbl">Net objective</div><div class="metric-val" id="m-no"></div></div>
+    </div>
+    <div class="warn" id="warn"></div>
+  </div>
+</div>
+<script>
+  function upd() {
+    var beta = parseFloat(document.getElementById('kl-beta').value);
+    var rew  = parseFloat(document.getElementById('kl-rew').value);
+    document.getElementById('beta-val').textContent = beta.toFixed(2);
+    document.getElementById('rew-val').textContent  = rew.toFixed(2);
+    var klP = beta * rew * 1.4, net = rew - klP;
+    var pos = Math.max(.05, Math.min(.95, .5 + (rew - klP) * .4));
+    document.getElementById('tmark').style.left = (pos * 100).toFixed(1) + '%';
+    document.getElementById('tfl').style.width  = ((1 - pos) * 100).toFixed(1) + '%';
+    document.getElementById('tfr').style.width  = (pos * 100).toFixed(1) + '%';
+    document.getElementById('m-rg').textContent = '+' + (rew * (1 - klP * .5)).toFixed(3);
+    document.getElementById('m-kp').textContent = '-' + klP.toFixed(3);
+    var no = document.getElementById('m-no');
+    no.textContent = (net >= 0 ? '+' : '') + Math.max(-1, net).toFixed(3);
+    no.style.color = net >= 0 ? '#059669' : '#dc2626';
+    var w = document.getElementById('warn');
+    if (beta < .05 && rew > .5) {
+      w.style.display = 'block'; w.style.background = '#fff7ed';
+      w.style.borderColor = '#d97706'; w.style.color = '#92400e';
+      w.innerHTML = '⚠️ <strong>Reward hacking risk.</strong> Low β means the policy is nearly unconstrained — the optimizer will find exploits that score highly but drift far from coherent behaviour.';
+    } else if (beta > .7) {
+      w.style.display = 'block'; w.style.background = '#eff6ff';
+      w.style.borderColor = '#2563eb'; w.style.color = '#1e40af';
+      w.innerHTML = '🔒 <strong>KL collapse.</strong> The penalty dominates — any deviation from the reference is too costly. Training stalls and the model cannot improve.';
+    } else { w.style.display = 'none'; }
+    notify();
+  }
+  function notify() { window.parent.postMessage({ iframeId: 'rlhf-w3', height: document.body.scrollHeight }, '*'); }
+  document.querySelectorAll('input[type=range]').forEach(function(el) { el.addEventListener('input', upd); });
+  upd();
+  window.addEventListener('load', notify);
+  window.addEventListener('resize', notify);
+</script>
+</body>
+</html>
