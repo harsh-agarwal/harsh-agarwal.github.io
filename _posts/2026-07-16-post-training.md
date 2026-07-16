@@ -52,11 +52,34 @@ This post walks through each stage of the modern post-training stack: Supervised
   color: #7ec882;
   border-color: rgba(126,200,130,0.4);
 }
-.eq-vars {
+.papers-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 14px;
-  line-height: 2;
-  margin: 4px 0 20px 2px;
-  color: #555;
+  margin: 16px 0 8px;
+}
+.papers-table th {
+  text-align: left;
+  padding: 8px 14px 8px 0;
+  border-bottom: 2px solid #e0dcd4;
+  font-weight: 600;
+  color: #444;
+  white-space: nowrap;
+}
+.papers-table td {
+  padding: 9px 14px 9px 0;
+  border-bottom: 1px solid #f0ede8;
+  vertical-align: top;
+  line-height: 1.5;
+}
+.papers-table td:first-child {
+  white-space: nowrap;
+  color: #999;
+  font-size: 13px;
+  padding-right: 20px;
+}
+.papers-table td:last-child {
+  color: #666;
 }
 </style>
 
@@ -144,11 +167,12 @@ The reward model learns from pairwise comparisons. You show it a prompt alongsid
 
 <div>\[\mathcal{L}_{\text{RM}} = -\,\mathbb{E}\!\left[ \log \sigma\!\left( r(x,\, y_w) - r(x,\, y_l) \right) \right]\]</div>
 
-<div class="eq-vars">
-$r(x, y)$ — reward score for response $y$ given prompt $x$<br>
-$y_w$ — preferred (winner) response; &nbsp; $y_l$ — dispreferred (loser) response<br>
-$\sigma$ — sigmoid function
-</div>
+<div>\[\begin{array}{r@{\;{:}\;}l}
+r(x, y) & \text{reward score for response } y \text{ given prompt } x \\[5pt]
+y_w & \text{preferred (winner) response} \\[5pt]
+y_l & \text{dispreferred (loser) response} \\[5pt]
+\sigma & \text{sigmoid function}
+\end{array}\]</div>
 
 Once trained, the reward model is a standalone function you can query cheaply at inference time. Give it any (prompt, response) pair and it returns a scalar score. You've distilled human preference into something differentiable, and that's what makes optimization against it possible.
 
@@ -171,12 +195,13 @@ The fix is a **KL divergence penalty**: a term in the objective that penalizes t
 
 <div>\[\mathcal{J}_{\text{PPO}} = \mathbb{E}\!\left[ r(x,y) \right] - \beta \cdot \mathrm{KL}\!\left( \pi_{\text{RL}}(y|x) \;\Big\|\; \pi_{\text{SFT}}(y|x) \right)\]</div>
 
-<div class="eq-vars">
-$r(x,y)$ — reward model score<br>
-$\beta$ — KL penalty coefficient (typically 0.02 to 0.2)<br>
-$\pi_{\text{RL}}$ — current (fine-tuning) policy; &nbsp; $\pi_{\text{SFT}}$ — frozen reference (SFT) policy<br>
-$\mathrm{KL}(\cdot \| \cdot)$ — KL divergence, measuring how far the policies have drifted
-</div>
+<div>\[\begin{array}{r@{\;{:}\;}l}
+r(x,y) & \text{reward model score} \\[5pt]
+\beta & \text{KL penalty coefficient (typically 0.02 to 0.2)} \\[5pt]
+\pi_{\text{RL}} & \text{current (fine-tuning) policy} \\[5pt]
+\pi_{\text{SFT}} & \text{frozen reference (SFT) policy} \\[5pt]
+\mathrm{KL}(\cdot\|\cdot) & \text{KL divergence, measuring policy drift}
+\end{array}\]</div>
 
 Tune β below and watch the tug-of-war between reward exploitation and reference fidelity in real time.
 
@@ -212,9 +237,11 @@ RLHF with PPO works, but the pipeline is complex. Training a separate reward mod
 
 <div>\[\mathcal{L}_{\text{DPO}} = -\,\mathbb{E}_{(x,\, y_w,\, y_l)}\!\left[ \log \sigma\!\left( \beta \log \frac{\pi_\theta(y_w|x)}{\pi_{\text{ref}}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{\text{ref}}(y_l|x)} \right) \right]\]</div>
 
-<div class="eq-vars">
-The loss increases $\log \pi_\theta(y_w|x)$ relative to the reference while decreasing $\log \pi_\theta(y_l|x)$ relative to the reference. $\beta$ controls the deviation budget — the same leash as in PPO, expressed directly in policy log-ratios instead of a separate KL term.
-</div>
+<div>\[\begin{array}{r@{\;{:}\;}l}
+\pi_\theta & \text{policy being trained} \\[5pt]
+\pi_{\text{ref}} & \text{frozen reference (SFT) policy} \\[5pt]
+\beta & \text{deviation budget, same role as in PPO}
+\end{array}\]</div>
 
 The β coefficient is doing the same job as in PPO, just expressed directly in terms of policy log-ratios rather than reward scores. The pipeline comparison below shows exactly how much complexity DPO eliminates compared to the full RLHF setup.
 
@@ -282,12 +309,49 @@ We're still early. The stack keeps improving, the techniques keep compounding, a
 
 ## Key Papers
 
-| Year | Paper | Contribution |
-|------|-------|--------------|
-| 2017 | Christiano et al., *Deep RL from Human Preferences* | Original RLHF framework |
-| 2020 | Stiennon et al., *Learning to summarize with human feedback* | RLHF applied to text generation |
-| 2022 | Ouyang et al., *InstructGPT* | RLHF at LLM scale |
-| 2022 | Bai et al. (Anthropic), *Constitutional AI* | CAI and RLAIF |
-| 2017 | Schulman et al., *Proximal Policy Optimization* | The PPO algorithm |
-| 2023 | Rafailov et al., *Direct Preference Optimization* | DPO algorithm and theory |
-| 2023 | Lightman et al. (OpenAI), *Let's Verify Step by Step* | Process reward models |
+<table class="papers-table">
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th>Paper</th>
+      <th>Contribution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2017</td>
+      <td>Christiano et al., <em>Deep RL from Human Preferences</em></td>
+      <td>Original RLHF framework</td>
+    </tr>
+    <tr>
+      <td>2020</td>
+      <td>Stiennon et al., <em>Learning to summarize with human feedback</em></td>
+      <td>RLHF applied to text generation</td>
+    </tr>
+    <tr>
+      <td>2022</td>
+      <td>Ouyang et al., <em>InstructGPT</em></td>
+      <td>RLHF at LLM scale</td>
+    </tr>
+    <tr>
+      <td>2022</td>
+      <td>Bai et al. (Anthropic), <em>Constitutional AI</em></td>
+      <td>CAI and RLAIF</td>
+    </tr>
+    <tr>
+      <td>2017</td>
+      <td>Schulman et al., <em>Proximal Policy Optimization</em></td>
+      <td>The PPO algorithm</td>
+    </tr>
+    <tr>
+      <td>2023</td>
+      <td>Rafailov et al., <em>Direct Preference Optimization</em></td>
+      <td>DPO algorithm and theory</td>
+    </tr>
+    <tr>
+      <td>2023</td>
+      <td>Lightman et al. (OpenAI), <em>Let's Verify Step by Step</em></td>
+      <td>Process reward models</td>
+    </tr>
+  </tbody>
+</table>
